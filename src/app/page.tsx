@@ -2,10 +2,12 @@
 
 import React, { useState } from 'react';
 import './globals.css';
+import { convertMillisecondsToHumanReadable, TimeToolOutput, LiveCurrentTimePanel } from './tools/timeTools';
 
 const tools = [
   { category: 'List Tools', options: ['Unique list', 'Diff of two lists', 'Intersection of two lists', 'Find duplicate items', 'Sort a list'] },
   { category: 'JSON Tools', options: ['Prettify JSON', 'Flatten array', 'Diff of two JSONs', 'Stringify', 'Fix the JSON'] },
+  { category: 'Time Tools', options: ['Milliseconds to Date/Time'] },
 ];
 
 export default function Home() {
@@ -13,7 +15,7 @@ export default function Home() {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [inputData1, setInputData1] = useState<string>('');
   const [inputData2, setInputData2] = useState<string>('');
-  const [outputData, setOutputData] = useState<string>('');
+  const [outputData, setOutputData] = useState<any>('');
   const [extraOption, setExtraOption] = useState<string>('');
 
   const containerStyle = {
@@ -60,7 +62,9 @@ export default function Home() {
 
   const handleAction = React.useCallback(() => {
     try {
-      if (selectedOption === 'Unique list') {
+      if (selectedOption === 'Milliseconds to Date/Time') {
+        setOutputData(convertMillisecondsToHumanReadable(inputData1));
+      } else if (selectedOption === 'Unique list') {
         const items = inputData1.split('\n').map((item) => item.trim()).filter(Boolean);
         const uniqueItems = Array.from(new Set(items));
         if (extraOption === 'Convert to list') {
@@ -197,6 +201,19 @@ export default function Home() {
           />
         </div>
       );
+    } else if (selectedOption === 'Milliseconds to Date/Time') {
+      return (
+        <>
+          <textarea
+            className="w-full h-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Enter milliseconds value here..."
+            value={inputData1}
+            onChange={(e) => setInputData1(e.target.value)}
+            style={{ height: '10%' }}
+          />
+          <LiveCurrentTimePanel /> {/* <-- This renders the live time panel below the input */}
+        </>
+      );
     } else {
       return (
         <textarea
@@ -212,6 +229,9 @@ export default function Home() {
 
   // Added a copy button in the output panel to copy the result.
   const renderOutput = () => {
+    if (selectedOption === 'Milliseconds to Date/Time' && outputData) {
+      return <TimeToolOutput outputData={outputData} />;
+    }
     if (selectedOption === 'Diff of two lists' && outputData) {
       const parsedOutput = JSON.parse(outputData);
       const diff1 = parsedOutput.diff1 || [];
@@ -345,7 +365,7 @@ export default function Home() {
                     Count 2: {calculateCount(inputData2)}
                   </span>
                 </div>
-              ) : (
+              ) : selectedOption === 'Milliseconds to Date/Time' ? null : (
                 <span className="bg-blue-100 text-blue-800 font-semibold px-3 py-1 rounded">
                   Count: {calculateCount(inputData1)}
                 </span>
@@ -376,7 +396,7 @@ export default function Home() {
                     Count 2: {calculateCount(JSON.parse(outputData).diff2 || [])}
                   </span>
                 </div>
-              ) : (
+              ) : selectedOption === 'Milliseconds to Date/Time' ? null : (
                 <span className="bg-green-100 text-green-800 font-semibold px-3 py-1 rounded">
                   Count: {calculateCount(outputData)}
                 </span>
