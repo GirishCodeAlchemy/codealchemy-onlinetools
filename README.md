@@ -20,6 +20,10 @@ Codealchemy online tool is a web-based tool that provides various utilities for 
 - Stringify
 - Fix the JSON
 
+### Time tools
+
+- Convert millisec to Date
+
 ## How to Use
 
 1. Select a tool category (e.g., List tools, JSON tools).
