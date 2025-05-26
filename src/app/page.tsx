@@ -3,7 +3,7 @@
 import React, { useState , useRef} from 'react';
 import type { JSX } from 'react';
 import './globals.css';
-import { convertMillisecondsToHumanReadable, TimeToolOutput, LiveCurrentTimePanel } from './tools/timeTools';
+import { convertMillisecondsToHumanReadable, TimeToolOutput, LiveCurrentTimePanel } from './tools/TimeTools';
 import {
   uniqueList,
   diffOfTwoLists,
@@ -11,7 +11,8 @@ import {
   findDuplicates,
   sortList,
   ListToolOutput,
-} from './tools/listTools';
+} from './tools/ListTools';
+
 import {
   prettifyJSON,
   flattenArray,
@@ -20,7 +21,7 @@ import {
   fixJSON,
   JsonToolOutput,
   JsonataTool,
-} from './tools/jsonTools';
+} from './tools/JsonTools';
 
 import {
   ClipboardIcon,
