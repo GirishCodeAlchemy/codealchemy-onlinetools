@@ -1,5 +1,6 @@
 "use client";
-
+import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
+import { FaLinkedin, FaGithub } from 'react-icons/fa';
 import React, { useState , useRef} from 'react';
 import type { JSX } from 'react';
 import './globals.css';
@@ -252,7 +253,6 @@ export default function Home() {
       <header className="bg-white shadow px-6 py-4 flex items-center justify-between">
         <div className="flex items-center space-x-8">
           <h1 className="text-2xl font-bold text-blue-700">CodeAlchemy Online Tools</h1>
-
         </div>
         <button
           className="bg-gradient-to-r from-black-500 via-blue-500 to-black-400 text-black px-12 py-3 rounded-full shadow-2xl border-0 font-extrabold text-lg flex items-center justify-center gap-3 transition-all duration-200 hover:from-fuchsia-600 hover:via-blue-600 hover:to-cyan-500 hover:scale-105 active:scale-95 focus:outline-none focus:ring-4 focus:ring-cyan-200 disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-md bg-opacity-90"
@@ -270,7 +270,24 @@ export default function Home() {
             Run Tool
           </span>
         </button>
-        <span className="text-gray-500"> </span>
+        <span className="text-gray-500"> <a
+            href="https://www.linkedin.com/in/vgirish10"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-700 hover:text-blue-900 transition"
+            title="Follow me on LinkedIn"
+          >
+            <FaLinkedin className="w-7 h-7" />
+          </a>
+          <a
+            href="https://github.com/GirishCodeAlchemy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-gray-800 hover:text-black transition"
+            title="Follow me on GitHub"
+          >
+            <FaGithub className="w-7 h-7" />
+          </a> </span>
       </header>
       <hr></hr>
       <div className="flex flex-1">
