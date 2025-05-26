@@ -1,103 +1,154 @@
-"use client";
+import React from 'react';
+import styles from '../../styles/listTools.module.css';
 
-import React, { useState } from 'react';
-import './ListTools.css';
+export function uniqueList(input: string, extraOption: string) {
+  const items = input.split('\n').map(i => i.trim()).filter(Boolean);
+  const result = Array.from(new Set(items));
 
-const ListTools = () => {
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [inputData, setInputData] = useState<string>('');
-  const [result, setResult] = useState<string | null>(null);
+  if (extraOption === 'Convert to list') {
+    return JSON.stringify(result, null, 2);
+  } else if (extraOption === 'Convert as line by line') {
+    return result.join('\n');
+  } else {
+    return JSON.stringify(result, null, 2);
+  }
+}
 
-  const handleAction = () => {
-    if (!selectedOption) return;
+export function diffOfTwoLists(input1: string, input2: string, extraOption: string) {
+  const list1 = input1.split('\n').map(i => i.trim()).filter(Boolean);
+  const list2 = input2.split('\n').map(i => i.trim()).filter(Boolean);
+  const diff1 = list1.filter(i => !list2.includes(i));
+  const diff2 =list2.filter(i => !list1.includes(i));
 
-    try {
-      const parsedInput = JSON.parse(inputData);
 
-      switch (selectedOption) {
-        case 'Unique list': {
-          const uniqueList = Array.from(new Set(parsedInput));
-          setResult(`Unique List: ${uniqueList.join(', ')}`);
-          break;
+    const result = { diff1, diff2 };
+    if (extraOption === 'Convert to list') {
+        return JSON.stringify(result, null, 2);
+    } else if (extraOption === 'Convert as line by line') {
+        try {
+            const parsedInput1 = JSON.parse(input1);
+            const parsedInput2 = JSON.parse(input2);
+
+            if (Array.isArray(parsedInput1) && Array.isArray(parsedInput2)) {
+                const diff1 = parsedInput1.filter(item => !parsedInput2.includes(item));
+                const diff2 = parsedInput2.filter(item => !parsedInput1.includes(item));
+                return `Only in List 1 (Count: ${diff1.length}):\n${diff1.join('\n')}\n\nOnly in List 2 (Count: ${diff2.length}):\n${diff2.join('\n')}`;
+            } else {
+                return 'Invalid input: Expected JSON arrays for line-by-line comparison.';
+            }
+        } catch (error) {
+            return 'Invalid JSON input. Please provide valid JSON arrays.';
         }
-        case 'Diff of two lists': {
-          const [list1, list2] = parsedInput;
-          const diff = list1.filter((item: any) => !list2.includes(item));
-          setResult(`Difference: ${diff.join(', ')}`);
-          break;
-        }
-        case 'Intersection of two lists': {
-          const [list1, list2] = parsedInput;
-          const intersection = list1.filter((item: any) => list2.includes(item));
-          setResult(`Intersection: ${intersection.join(', ')}`);
-          break;
-        }
-        case 'Find duplicate items': {
-          const duplicates = parsedInput.filter((item: any, index: number) => parsedInput.indexOf(item) !== index);
-          setResult(`Duplicates: ${Array.from(new Set(duplicates)).join(', ')}`);
-          break;
-        }
-        case 'Sort a list': {
-          const sortedList = parsedInput.sort((a: any, b: any) => a - b);
-          setResult(`Sorted List: ${sortedList.join(', ')}`);
-          break;
-        }
-        default:
-          setResult('No action defined for this option.');
-      }
-    } catch (error) {
-      setResult('Invalid input format. Please provide valid JSON.');
+    } else {
+        return JSON.stringify(result, null, 2);
     }
-  };
 
-  return (
-    <div className="list-tools">
-      <h2 className="text-xl font-bold mb-2">List Tools</h2>
-      <ul className="list-disc pl-6">
-        {['Unique list', 'Diff of two lists', 'Intersection of two lists', 'Find duplicate items', 'Sort a list'].map((option) => (
-          <li
-            key={option}
-            className="mb-1 cursor-pointer hover:underline"
-            onClick={() => {
-              setSelectedOption(option);
-              setResult(null);
-              setInputData('');
-            }}
-          >
-            {option}
-          </li>
-        ))}
-      </ul>
+}
 
-      {selectedOption && (
-        <div className="mt-6">
-          <h3 className="text-lg font-semibold mb-2">Selected Option: {selectedOption}</h3>
-          <textarea
-            className="w-full p-2 border rounded mb-4"
-            rows={4}
-            placeholder="Enter input as JSON"
-            value={inputData}
-            onChange={(e) => setInputData(e.target.value)}
-          />
+export function intersectionOfTwoLists(input1: string, input2: string, extraOption: string) {
+
+  const list1 = input1.split('\n').map(i => i.trim()).filter(Boolean);
+  const list2 = input2.split('\n').map(i => i.trim()).filter(Boolean);
+  const intersection = Array.from(new Set(list1.filter(i => list2.includes(i))));
+    if (extraOption === 'Convert to list') {
+        return JSON.stringify(intersection, null, 2);
+    } else if (extraOption === 'Convert as line by line') {
+        return intersection.join('\n');
+    } else {
+        return JSON.stringify(intersection, null, 2);
+    }
+}
+
+export function findDuplicates(input: string, extraOption: string) {
+  const items = input.split('\n').map(i => i.trim()).filter(Boolean);
+  const duplicates = items.filter((item, idx) => items.indexOf(item) !== idx);
+  const uniqueDuplicates = Array.from(new Set(duplicates));
+
+    if (extraOption === 'Convert to list') {
+        return JSON.stringify(uniqueDuplicates, null, 2);
+    } else if (extraOption === 'Convert as line by line') {
+        return uniqueDuplicates.join('\n');
+    } else {
+        return JSON.stringify(uniqueDuplicates, null, 2);
+    }
+}
+
+export function sortList(input: string, extraOption: string) {
+  const items = input.split('\n').map(i => i.trim()).filter(Boolean);
+  const sortedItems = items.sort();
+
+    if (extraOption === 'Convert to list') {
+        return JSON.stringify(sortedItems, null, 2);
+    } else if (extraOption === 'Convert as line by line') {
+        return sortedItems.join('\n');
+    } else {
+        return JSON.stringify(sortedItems, null, 2);
+    }
+}
+
+export function ListToolOutput(outputData: any, selectedOption: any) {
+    if (selectedOption === 'Diff of two lists' && outputData) {
+      const parsedOutput = JSON.parse(outputData);
+      const diff1 = parsedOutput.diff1 || [];
+      const diff2 = parsedOutput.diff2 || [];
+
+      return (
+        <div className="flex flex-col space-y-4">
+          <div className="flex justify-end">
+            <button
+              className="bg-blue-500 text-white px-4 py-2 rounded shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onClick={() => navigator.clipboard.writeText(outputData)}
+            >
+              Copy Output
+            </button>
+          </div>
+          <div className="flex space-x-4">
+            <div className="flex-1">
+              <h4 className="text-lg font-semibold text-red-600">Only in List 1</h4>
+              <ul className="list-disc pl-4">
+                {diff1.map((item: string, index: number) => (
+                  <li key={index} className="text-red-500">{item}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="flex-1">
+              <h4 className="text-lg font-semibold text-green-600">Only in List 2</h4>
+              <ul className="list-disc pl-4">
+                {diff2.map((item: string, index: number) => (
+                  <li key={index} className="text-green-500">{item}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      );
+    } else {
+        return (
+      <div className="flex flex-col space-y-4">
+        <div className="flex justify-end">
           <button
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-            onClick={handleAction}
+            className="bg-blue-500 text-white px-4 py-2 rounded shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onClick={() => navigator.clipboard.writeText(outputData)}
           >
-            Perform Action
+            Copy Output
           </button>
         </div>
-      )}
+        <pre className="w-full h-full p-2 border rounded bg-gray-100 overflow-auto">
+          {outputData}
+        </pre>
+      </div>
+    );
+    }
 
-      {result && (
-        <div className="mt-6">
-          <h3 className="text-lg font-semibold mb-2">Result:</h3>
-          <pre className="bg-gray-100 p-4 rounded border border-gray-300">
-            {result}
-          </pre>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default ListTools;
+//   if (Array.isArray(outputData)) {
+//     return (
+//       <pre className={styles.output}>{outputData.join('\n')}</pre>
+//     );
+//   }
+//   if (typeof outputData === 'object') {
+//     return (
+//       <pre className={styles.output}>{JSON.stringify(outputData, null, 2)}</pre>
+//     );
+//   }
+//   return <pre className={styles.output}>{outputData}</pre>;
+}

@@ -1,12 +1,64 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState , useRef} from 'react';
+import type { JSX } from 'react';
 import './globals.css';
 import { convertMillisecondsToHumanReadable, TimeToolOutput, LiveCurrentTimePanel } from './tools/timeTools';
+import {
+  uniqueList,
+  diffOfTwoLists,
+  intersectionOfTwoLists,
+  findDuplicates,
+  sortList,
+  ListToolOutput,
+} from './tools/listTools';
+import {
+  prettifyJSON,
+  flattenArray,
+  diffOfTwoJSONs,
+  stringifyJSON,
+  fixJSON,
+  JsonToolOutput,
+  JsonataTool,
+} from './tools/jsonTools';
+
+import {
+  ClipboardIcon,
+  QrCodeIcon,
+  ClockIcon,
+  SparklesIcon,
+  AdjustmentsHorizontalIcon,
+  ArrowsRightLeftIcon,
+  DocumentDuplicateIcon,
+  ArrowUpOnSquareIcon,
+  MagnifyingGlassCircleIcon,
+  TableCellsIcon
+} from '@heroicons/react/24/outline'; // If using Heroicons React package
+
+const categoryIcons: Record<string, JSX.Element> = {
+  'List Tools': <ClipboardIcon className="w-5 h-5 mr-2 text-white" />,
+  'JSON Tools': <QrCodeIcon className="w-5 h-5 mr-2 text-white" />,
+  'Time Tools': <ClockIcon className="w-5 h-5 mr-2 text-white" />,
+};
+
+const optionIcons: Record<string, JSX.Element> = {
+  'Unique list': <SparklesIcon className="w-4 h-4 mr-2 text-white" />,
+  'Diff of two lists': <ArrowsRightLeftIcon className="w-4 h-4 mr-2 text-white" />,
+  'Intersection of two lists': <AdjustmentsHorizontalIcon className="w-4 h-4 mr-2 text-white" />,
+  'Find duplicate items': <MagnifyingGlassCircleIcon className="w-4 h-4 mr-2 text-white" />,
+  'Sort a list': <ArrowUpOnSquareIcon className="w-4 h-4 mr-2 text-white" />,
+  'JSONata': <TableCellsIcon className="w-4 h-4 mr-2 text-white" />,
+  'Prettify JSON': <SparklesIcon className="w-4 h-4 mr-2 text-white" />,
+  'Flatten array': <ArrowsRightLeftIcon className="w-4 h-4 mr-2 text-white" />,
+  'Diff of two JSONs': <ArrowsRightLeftIcon className="w-4 h-4 mr-2 text-white" />,
+  'Stringify': <DocumentDuplicateIcon className="w-4 h-4 mr-2 text-white" />,
+  'Fix the JSON': <AdjustmentsHorizontalIcon className="w-4 h-4 mr-2 text-white" />,
+  'Milliseconds to Date/Time': <ClockIcon className="w-4 h-4 mr-2 text-white" />,
+};
 
 const tools = [
   { category: 'List Tools', options: ['Unique list', 'Diff of two lists', 'Intersection of two lists', 'Find duplicate items', 'Sort a list'] },
-  { category: 'JSON Tools', options: ['Prettify JSON', 'Flatten array', 'Diff of two JSONs', 'Stringify', 'Fix the JSON'] },
+  { category: 'JSON Tools', options: ['JSONata','Prettify JSON', 'Flatten array', 'Diff of two JSONs', 'Stringify', 'Fix the JSON'] },
   { category: 'Time Tools', options: ['Milliseconds to Date/Time'] },
 ];
 
@@ -17,42 +69,28 @@ export default function Home() {
   const [inputData2, setInputData2] = useState<string>('');
   const [outputData, setOutputData] = useState<any>('');
   const [extraOption, setExtraOption] = useState<string>('');
+  const [expandedCategories, setExpandedCategories] = useState<string[]>([tools[0].category]);
+  const jsonataRef = useRef<any>(null);
 
-  const containerStyle = {
-    display: 'flex',
-    flexDirection: 'column',
-    flex: 1,
-    maxWidth: '100%', // Prevent horizontal expansion
-    overflow: 'hidden', // Hide overflow to maintain layout
+  const toggleCategory = (category: string) => {
+    setExpandedCategories((prev) =>
+      prev.includes(category)
+        ? prev.filter((c) => c !== category)
+        : [...prev, category]
+    );
   };
 
-  const textareaStyle = {
-    whiteSpace: 'pre-wrap', // Enable word wrapping
-    wordWrap: 'break-word', // Break long words
-    overflowWrap: 'break-word', // Ensure long words wrap properly
-    height: '400px', // Maintain consistent height
-    width: '100%', // Ensure it doesn't expand horizontally
-    maxWidth: '100%', // Restrict maximum width to prevent horizontal growth
-    resize: 'none', // Disable resizing to prevent horizontal expansion
-    overflow: 'auto', // Add scrollbars if content overflows
-    display: 'block', // Ensure block-level rendering
-    boxSizing: 'border-box', // Include padding and border in width/height calculations
-    wordBreak: 'break-word', // Break long words to prevent overflow
-  };
-
-  // Fixed the calculateCount function to handle non-string data gracefully.
   const calculateCount = (data: any): number => {
     try {
       if (typeof data === 'string') {
         const parsedData = JSON.parse(data);
         if (Array.isArray(parsedData)) {
-          return parsedData.length; // Count items in the list if input is a JSON array
+          return parsedData.length;
         }
       } else if (Array.isArray(data)) {
-        return data.length; // Directly return the length if data is already an array
+        return data.length;
       }
     } catch {
-      // If not JSON or array, count non-empty lines if it's a string
       if (typeof data === 'string') {
         return data.split('\n').filter((line) => line.trim() !== '').length;
       }
@@ -62,98 +100,41 @@ export default function Home() {
 
   const handleAction = React.useCallback(() => {
     try {
+      // Time Tools
       if (selectedOption === 'Milliseconds to Date/Time') {
         setOutputData(convertMillisecondsToHumanReadable(inputData1));
-      } else if (selectedOption === 'Unique list') {
-        const items = inputData1.split('\n').map((item) => item.trim()).filter(Boolean);
-        const uniqueItems = Array.from(new Set(items));
-        if (extraOption === 'Convert to list') {
-          setOutputData(JSON.stringify(uniqueItems, null, 2));
-        } else if (extraOption === 'Convert as line by line') {
-          setOutputData(uniqueItems.join('\n'));
-        } else {
-          setOutputData(JSON.stringify(uniqueItems, null, 2));
-        }
+      }
+      // List Tools
+      else if (selectedOption === 'Unique list') {
+        const result = uniqueList(inputData1, extraOption);
+        setOutputData(result)
       } else if (selectedOption === 'Diff of two lists') {
-        const list1 = inputData1.split('\n').map((item) => item.trim()).filter(Boolean);
-        const list2 = inputData2.split('\n').map((item) => item.trim()).filter(Boolean);
-        const diff1 = list1.filter((item) => !list2.includes(item));
-        const diff2 = list2.filter((item) => !list1.includes(item));
-        const result = { diff1, diff2 };
-        if (extraOption === 'Convert to list') {
-          setOutputData(JSON.stringify(result, null, 2));
-        } else if (extraOption === 'Convert as line by line') {
-          try {
-            const parsedInput1 = JSON.parse(inputData1);
-            const parsedInput2 = JSON.parse(inputData2);
-
-            if (Array.isArray(parsedInput1) && Array.isArray(parsedInput2)) {
-              const diff1 = parsedInput1.filter(item => !parsedInput2.includes(item));
-              const diff2 = parsedInput2.filter(item => !parsedInput1.includes(item));
-              setOutputData(`Only in List 1 (Count: ${diff1.length}):\n${diff1.join('\n')}\n\nOnly in List 2 (Count: ${diff2.length}):\n${diff2.join('\n')}`);
-            } else {
-              setOutputData('Invalid input: Expected JSON arrays for line-by-line comparison.');
-            }
-          } catch (error) {
-            setOutputData('Invalid JSON input. Please provide valid JSON arrays.');
-          }
-        } else {
-          setOutputData(JSON.stringify(result, null, 2));
-        }
+        const result = diffOfTwoLists(inputData1, inputData2, extraOption);
+        setOutputData(result);
       } else if (selectedOption === 'Intersection of two lists') {
-        const list1 = inputData1.split('\n').map((item) => item.trim()).filter(Boolean);
-        const list2 = inputData2.split('\n').map((item) => item.trim()).filter(Boolean);
-        const intersection = Array.from(new Set(list1.filter((item) => list2.includes(item))));
-        if (extraOption === 'Convert to list') {
-          setOutputData(JSON.stringify(intersection, null, 2));
-        } else if (extraOption === 'Convert as line by line') {
-          setOutputData(intersection.join('\n'));
-        } else {
-          setOutputData(JSON.stringify(intersection, null, 2));
-        }
+        const result = intersectionOfTwoLists(inputData1, inputData2, extraOption);
+        setOutputData(result);
       } else if (selectedOption === 'Find duplicate items') {
-        const items = inputData1.split('\n').map((item) => item.trim()).filter(Boolean);
-        const duplicates = items.filter((item, index) => items.indexOf(item) !== index);
-        const uniqueDuplicates = Array.from(new Set(duplicates));
-        if (extraOption === 'Convert to list') {
-          setOutputData(JSON.stringify(uniqueDuplicates, null, 2));
-        } else if (extraOption === 'Convert as line by line') {
-          setOutputData(uniqueDuplicates.join('\n'));
-        } else {
-          setOutputData(JSON.stringify(uniqueDuplicates, null, 2));
-        }
+        const result = findDuplicates(inputData1, extraOption);
+        setOutputData(result);
       } else if (selectedOption === 'Sort a list') {
-        const items = inputData1.split('\n').map((item) => item.trim()).filter(Boolean);
-        const sortedItems = items.sort();
-        if (extraOption === 'Convert to list') {
-          setOutputData(JSON.stringify(sortedItems, null, 2));
-        } else if (extraOption === 'Convert as line by line') {
-          setOutputData(sortedItems.join('\n'));
-        } else {
-          setOutputData(JSON.stringify(sortedItems, null, 2));
-        }
-      } else if (selectedOption === 'Prettify JSON') {
-        const json = JSON.parse(inputData1);
-        setOutputData(JSON.stringify(json, null, 2));
+        const result = sortList(inputData1, extraOption);
+        setOutputData(result);
+      }
+      // JSON Tools
+      else if (selectedOption === 'Prettify JSON') {
+        setOutputData(prettifyJSON(inputData1));
       } else if (selectedOption === 'Flatten array') {
-        const array = JSON.parse(inputData1);
-        const flattened = array.flat(Infinity);
-        setOutputData(JSON.stringify(flattened, null, 2));
+        setOutputData(flattenArray(inputData1));
       } else if (selectedOption === 'Diff of two JSONs') {
-        const json1 = JSON.parse(inputData1);
-        const json2 = JSON.parse(inputData2);
-        const diff = Object.keys(json1).filter((key) => json1[key] !== json2[key]);
-        setOutputData(JSON.stringify(diff, null, 2));
+        setOutputData(diffOfTwoJSONs(inputData1, inputData2));
       } else if (selectedOption === 'Stringify') {
-        const obj = JSON.parse(inputData1);
-        setOutputData(JSON.stringify(obj));
+        setOutputData(stringifyJSON(inputData1));
       } else if (selectedOption === 'Fix the JSON') {
-        try {
-          const fixedJson = JSON.parse(inputData1);
-          setOutputData(JSON.stringify(fixedJson, null, 2));
-        } catch (error) {
-          setOutputData('Invalid JSON input. Please check your input.');
-        }
+        setOutputData(fixJSON(inputData1));
+      }else if (selectedOption === 'JSONata') {
+        jsonataRef.current?.run();
+        return;
       } else {
         setOutputData('Action not implemented yet.');
       }
@@ -175,12 +156,12 @@ export default function Home() {
           <option value="Convert as line by line">Convert as line by line</option>
         </select>
       );
-    } else {
-      return <p className="text-gray-500">No extra options available for this action.</p>;
     }
+    // else {
+    //   return <p className="text-gray-500">No extra options available for this action.</p>;
+    // }
   };
 
-  // Updated the input text area height for multiple inputs to divide the panel into two halves.
   const renderInputFields = () => {
     if (['Diff of two lists', 'Diff of two JSONs', 'Intersection of two lists'].includes(selectedOption || '')) {
       return (
@@ -190,14 +171,14 @@ export default function Home() {
             placeholder="Enter first input..."
             value={inputData1}
             onChange={(e) => setInputData1(e.target.value)}
-            style={{ height: '50%' }} // Divide the panel into two halves
+            style={{ height: '50%' }}
           />
           <textarea
             className="w-full flex-1 p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="Enter second input..."
             value={inputData2}
             onChange={(e) => setInputData2(e.target.value)}
-            style={{ height: '50%' }} // Divide the panel into two halves
+            style={{ height: '50%' }}
           />
         </div>
       );
@@ -211,9 +192,12 @@ export default function Home() {
             onChange={(e) => setInputData1(e.target.value)}
             style={{ height: '10%' }}
           />
-          <LiveCurrentTimePanel /> {/* <-- This renders the live time panel below the input */}
+          <LiveCurrentTimePanel />
         </>
       );
+    } else if (selectedOption === 'JSONata') {
+      // return <JsonataTool />;
+      return <JsonataTool ref={jsonataRef} />;
     } else {
       return (
         <textarea
@@ -227,167 +211,170 @@ export default function Home() {
     }
   };
 
-  // Added a copy button in the output panel to copy the result.
   const renderOutput = () => {
     if (selectedOption === 'Milliseconds to Date/Time' && outputData) {
       return <TimeToolOutput outputData={outputData} />;
     }
-    if (selectedOption === 'Diff of two lists' && outputData) {
-      const parsedOutput = JSON.parse(outputData);
-      const diff1 = parsedOutput.diff1 || [];
-      const diff2 = parsedOutput.diff2 || [];
-
-      return (
-        <div className="flex flex-col space-y-4">
-          <div className="flex justify-end">
-            <button
-              className="bg-blue-500 text-white px-4 py-2 rounded shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              onClick={() => navigator.clipboard.writeText(outputData)}
-            >
-              Copy Output
-            </button>
-          </div>
-          <div className="flex space-x-4">
-            <div className="flex-1">
-              <h4 className="text-lg font-semibold text-red-600">Only in List 1</h4>
-              <ul className="list-disc pl-4">
-                {diff1.map((item: string, index: number) => (
-                  <li key={index} className="text-red-500">{item}</li>
-                ))}
-              </ul>
-            </div>
-            <div className="flex-1">
-              <h4 className="text-lg font-semibold text-green-600">Only in List 2</h4>
-              <ul className="list-disc pl-4">
-                {diff2.map((item: string, index: number) => (
-                  <li key={index} className="text-green-500">{item}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      );
-    } else {
-      return (
-        <div className="flex flex-col space-y-4">
-          <div className="flex justify-end">
-            <button
-              className="bg-blue-500 text-white px-4 py-2 rounded shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              onClick={() => navigator.clipboard.writeText(outputData)}
-            >
-              Copy Output
-            </button>
-          </div>
-          <pre className="w-full h-full p-2 border rounded bg-gray-100 overflow-auto">
-            {outputData}
-          </pre>
-        </div>
-      );
+    if (
+      ['Unique list', 'Diff of two lists', 'Intersection of two lists', 'Find duplicate items', 'Sort a list'].includes(selectedOption || '')
+      && outputData
+    ) {
+      return ListToolOutput(outputData, selectedOption);
+      // return <ListToolOutput outputData={outputData} , selectedOption={selectedOption} />;
     }
+    if (
+      ['Prettify JSON', 'Flatten array', 'Diff of two JSONs', 'Stringify', 'Fix the JSON'].includes(selectedOption || '')
+      && outputData
+    ) {
+      return <JsonToolOutput outputData={outputData} />;
+    }
+    return (
+      <div className="flex flex-col space-y-4">
+        <div className="flex justify-end">
+          <button
+            className="bg-blue-500 text-white px-4 py-2 rounded shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onClick={() => navigator.clipboard.writeText(outputData)}
+          >
+            Copy Output
+          </button>
+        </div>
+        <pre className="w-full h-full p-2 border rounded bg-gray-100 overflow-auto">
+          {outputData}
+        </pre>
+      </div>
+    );
   };
 
-  return (
+   return (
     <div className="flex flex-col h-screen bg-gray-50">
-      <header className="p-4 border-b bg-white shadow flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-blue-600">CodeAlchemy Tool Dashboard</h1>
-        {selectedOption && (
-          <button
-            className="bg-green-500 text-white px-6 py-3 rounded shadow hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500"
-            onClick={handleAction}
-          >
-            Perform Action
-          </button>
-        )}
-      </header>
+      {/* Header */}
+      <header className="bg-white shadow px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center space-x-8">
+          <h1 className="text-2xl font-bold text-blue-700">CodeAlchemy Online Tools</h1>
 
-      {/* Main Content */}
-      <div className="flex flex-1">   {/* Left Panel */}
-      <div className="w-1/7 bg-white p-4 border-r shadow-md">
-        <h2 className="text-xl font-bold mb-4 text-blue-600">Tools</h2>
-        <ul className="space-y-2">
-          {tools.map((tool) => (
-            <li key={tool.category}>
-              <div
-                className={`p-2 rounded cursor-pointer ${
-                  selectedTool === tool.category ? 'bg-blue-500 text-white' : 'hover:bg-gray-200'
-                }`}
+        </div>
+        <button
+          className="bg-gradient-to-r from-black-500 via-blue-500 to-black-400 text-black px-12 py-3 rounded-full shadow-2xl border-0 font-extrabold text-lg flex items-center justify-center gap-3 transition-all duration-200 hover:from-fuchsia-600 hover:via-blue-600 hover:to-cyan-500 hover:scale-105 active:scale-95 focus:outline-none focus:ring-4 focus:ring-cyan-200 disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-md bg-opacity-90"
+          onClick={handleAction}
+          disabled={!selectedOption}
+          style={{
+            letterSpacing: '0.09em',
+            boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.18)'
+          }}
+        >
+          <span className="inline-flex items-center gap-2">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M12 5l7 7-7 7" />
+            </svg>
+            Run Tool
+          </span>
+        </button>
+        <span className="text-gray-500"> </span>
+      </header>
+      <hr></hr>
+      <div className="flex flex-1">
+        {/* Sidebar */}
+        <aside className="w-64 bg-gradient-to-b from-blue-100 via-blue-50 to-blue-200 border-r p-4 flex flex-col shadow-md rounded-tr-xl rounded-br-xl">
+  <h2 className="text-xl font-bold mb-6 text-blue-700 tracking-wide text-center">🛠️ Tools</h2>
+  {tools.map((tool, idx) => (
+    <div key={tool.category} className="">
+      {/* Tool Category Header */}
+      <button
+        className="w-full flex justify-between items-center px-4 py-2 rounded-t-xl font-semibold text-blue-800 bg-blue-100 hover:bg-blue-200 transition focus:outline-none border-b border-blue-200"
+        onClick={() => toggleCategory(tool.category)}
+        style={{
+          fontSize: '1.08rem',
+          letterSpacing: '0.03em',
+        }}
+      >
+         <span className="flex items-center">
+          {categoryIcons[tool.category] || null}
+          {tool.category}
+        </span>
+        <span className="text-lg">{expandedCategories.includes(tool.category) ? '▲' : '▼'}</span>
+      </button>
+      {/* Tool Options */}
+      {expandedCategories.includes(tool.category) && (
+        <ul className="py-1 pl-2">
+          {tool.options.map((option) => (
+            <li key={option}>
+              <button
+                className={`w-full text-left px-4 py-2 my-1 rounded-lg font-medium transition-all
+                  ${
+                     selectedOption === option
+                      ? '!bg-green-600 text-white font-bold border-l-4 border-green-700 shadow'
+                      : 'bg-white hover:bg-green-100 text-green-700'
+                  }`}
+                style={{
+                  marginLeft: '0.7rem',
+                  boxShadow: selectedOption === option ? '0 2px 8px 0 rgba(135, 238, 39, 0.53)' : undefined,
+                  transition: 'all 0.15s'
+                }}
                 onClick={() => {
-                  setSelectedTool(tool.category);
-                  setSelectedOption(null);
+                  setSelectedOption(option);
                   setInputData1('');
                   setInputData2('');
                   setOutputData('');
                   setExtraOption('');
                 }}
               >
-                {tool.category}
-              </div>
-              {selectedTool === tool.category && (
-                <ul className="pl-4 mt-2 space-y-1">
-                  {tool.options.map((option) => (
-                    <li
-                      key={option}
-                      className={`p-1 rounded cursor-pointer ${
-                        selectedOption === option ? 'bg-blue-300' : 'hover:bg-gray-300'
-                      }`}
-                      onClick={() => {
-                        setSelectedOption(option);
-                        setInputData1('');
-                        setInputData2('');
-                        setOutputData('');
-                        setExtraOption('');
-                      }}
-                    >
-                      {option}
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <span className="flex items-center">
+      {optionIcons[option] && (
+        <span className="mr-2 flex items-center">{optionIcons[option]}</span>
+      )}
+      {option}
+    </span>
+              </button>
             </li>
           ))}
         </ul>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col">
-        <div className="flex flex-1 overflow-hidden">
-          {/* Input Section */}
-          <div className="flex-1 p-4 overflow-auto">
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="text-lg font-semibold text-blue-600">Input</h3>
-              {selectedOption && renderExtraOptions()}
-              {['Diff of two lists', 'Diff of two JSONs', 'Intersection of two lists'].includes(selectedOption || '') ? (
-                <div className="flex space-x-4">
+      )}
+      {/* Divider between categories */}
+      {idx !== tools.length - 1 && (
+        <hr className="my-0.5 border-blue-200" />
+      )}
+    </div>
+  ))}
+</aside>
+        {/* Main Content */}
+         <main className="flex-1 flex flex-col">
+          <div className="flex flex-1 overflow-hidden">
+            {/* Input Section */}
+            <div className="flex-1 p-4 overflow-auto">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-lg font-semibold text-blue-600">Input</h3>
+                {selectedOption && renderExtraOptions()}
+                {['Diff of two lists', 'Diff of two JSONs', 'Intersection of two lists'].includes(selectedOption || '') ? (
+                  <div className="flex space-x-4">
+                    <span className="bg-blue-100 text-blue-800 font-semibold px-3 py-1 rounded">
+                      Count 1: {calculateCount(inputData1)}
+                    </span>
+                    <span className="bg-blue-100 text-blue-800 font-semibold px-3 py-1 rounded">
+                      Count 2: {calculateCount(inputData2)}
+                    </span>
+                  </div>
+                ) : selectedOption === 'Milliseconds to Date/Time' ? null : (
                   <span className="bg-blue-100 text-blue-800 font-semibold px-3 py-1 rounded">
-                    Count 1: {calculateCount(inputData1)}
+                    Count: {calculateCount(inputData1)}
                   </span>
-                  <span className="bg-blue-100 text-blue-800 font-semibold px-3 py-1 rounded">
-                    Count 2: {calculateCount(inputData2)}
-                  </span>
-                </div>
-              ) : selectedOption === 'Milliseconds to Date/Time' ? null : (
-                <span className="bg-blue-100 text-blue-800 font-semibold px-3 py-1 rounded">
-                  Count: {calculateCount(inputData1)}
-                </span>
-              )}
+                )}
+              </div>
+              <div className="scrollable-panel">
+                {selectedOption ? (
+                  <>
+                    {renderInputFields()}
+                  </>
+                ) : (
+                  <p className="text-gray-500">Select an option to provide input.</p>
+                )}
+              </div>
             </div>
-
-            <div className="scrollable-panel">
-              {selectedOption ? (
-                <>
-                  {renderInputFields()}
-                </>
-              ) : (
-                <p className="text-gray-500">Select an option to provide input.</p>
-              )}
-            </div>
-          </div>
-
-          {/* Output Section */}
-          <div className="flex-1 p-4 border-l overflow-auto">
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="text-lg font-semibold text-blue-600">Output</h3>
-              {['Diff of two lists', 'Diff of two JSONs'].includes(selectedOption || '') && outputData ? (
+            {/* Output Section */}
+            {selectedOption !== 'JSONata' && (
+            <div className="flex-1 p-4 border-l overflow-auto">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-lg font-semibold text-blue-600">Output</h3>
+                {['Diff of two lists', 'Diff of two JSONs'].includes(selectedOption || '') && outputData ? (
                 <div className="flex space-x-4">
                   <span className="bg-green-100 text-green-800 font-semibold px-3 py-1 rounded">
                     Count 1: {calculateCount(JSON.parse(outputData).diff1 || [])}
@@ -401,17 +388,17 @@ export default function Home() {
                   Count: {calculateCount(outputData)}
                 </span>
               )}
-            </div>
-            <div className="scrollable-panel">
-              {outputData ? (
-                renderOutput()
-              ) : (
-                <p className="text-gray-500">Output will be displayed here.</p>
-              )}
-            </div>
+              </div>
+              <div className="scrollable-panel">
+                {outputData ? (
+                  renderOutput()
+                ) : (
+                  <p className="text-gray-500">Output will be displayed here.</p>
+                )}
+              </div>
+            </div>)}
           </div>
-          </div>
-        </div>
+        </main>
       </div>
     </div>
   );
