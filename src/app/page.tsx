@@ -365,10 +365,10 @@ export default function Home() {
                 {['Diff of two lists', 'Diff of two JSONs', 'Intersection of two lists'].includes(selectedOption || '') ? (
                   <div className="flex space-x-4">
                     <span className="bg-blue-100 text-blue-800 font-semibold px-3 py-1 rounded">
-                      Count 1: {calculateCount(inputData1)}
+                      List1: ( {calculateCount(inputData1)} )
                     </span>
                     <span className="bg-blue-100 text-blue-800 font-semibold px-3 py-1 rounded">
-                      Count 2: {calculateCount(inputData2)}
+                      List2: ( {calculateCount(inputData2)} )
                     </span>
                   </div>
                 ) : selectedOption === 'Milliseconds to Date/Time' ? null : (
@@ -395,10 +395,13 @@ export default function Home() {
                 {['Diff of two lists', 'Diff of two JSONs'].includes(selectedOption || '') && outputData ? (
                 <div className="flex space-x-4">
                   <span className="bg-green-100 text-green-800 font-semibold px-3 py-1 rounded">
-                    Count 1: {calculateCount(JSON.parse(outputData).diff1 || [])}
+                    List1: ( {calculateCount(JSON.parse(outputData).diff1 || [])} )
                   </span>
                   <span className="bg-green-100 text-green-800 font-semibold px-3 py-1 rounded">
-                    Count 2: {calculateCount(JSON.parse(outputData).diff2 || [])}
+                    List2: ( {calculateCount(JSON.parse(outputData).diff2 || [])} )
+                  </span>
+                  <span className="bg-green-100 text-green-800 font-semibold px-3 py-1 rounded">
+                    Common: ( {calculateCount(JSON.parse(outputData).common || [])} )
                   </span>
                 </div>
               ) : selectedOption === 'Milliseconds to Date/Time' ? null : (

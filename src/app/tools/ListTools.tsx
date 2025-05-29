@@ -19,9 +19,10 @@ export function diffOfTwoLists(input1: string, input2: string, extraOption: stri
   const list2 = input2.split('\n').map(i => i.trim()).filter(Boolean);
   const diff1 = list1.filter(i => !list2.includes(i));
   const diff2 =list2.filter(i => !list1.includes(i));
+  const common = list1.filter(i => list2.includes(i));
 
 
-    const result = { diff1, diff2 };
+    const result = { diff1, diff2, common };
     if (extraOption === 'Convert to list') {
         return JSON.stringify(result, null, 2);
     } else if (extraOption === 'Convert as line by line') {
@@ -32,9 +33,10 @@ export function diffOfTwoLists(input1: string, input2: string, extraOption: stri
             if (Array.isArray(parsedInput1) && Array.isArray(parsedInput2)) {
                 const diff1 = parsedInput1.filter(item => !parsedInput2.includes(item));
                 const diff2 = parsedInput2.filter(item => !parsedInput1.includes(item));
-                return `Only in List 1 (Count: ${diff1.length}):\n${diff1.join('\n')}\n\nOnly in List 2 (Count: ${diff2.length}):\n${diff2.join('\n')}`;
+                const common = parsedInput1.filter(item => parsedInput2.includes(item));
+                return `Only in List 1 (Count: ${diff1.length}):\n${diff1.join('\n')}\n\nOnly in List 2 (Count: ${diff2.length}):\n${diff2.join('\n')}\n\nCommon Values (Count: ${common.length}):\n${common.join('\n')}`;
             } else {
-                return 'Invalid input: Expected JSON arrays for line-by-line comparison.';
+              return 'Invalid input: Expected JSON arrays for line-by-line comparison.';
             }
         } catch (error) {
             return 'Invalid JSON input. Please provide valid JSON arrays.';
@@ -91,6 +93,7 @@ export function ListToolOutput(outputData: any, selectedOption: any) {
       const parsedOutput = JSON.parse(outputData);
       const diff1 = parsedOutput.diff1 || [];
       const diff2 = parsedOutput.diff2 || [];
+      const common = parsedOutput.common || [];
 
       return (
         <div className="flex flex-col space-y-4">
@@ -119,6 +122,14 @@ export function ListToolOutput(outputData: any, selectedOption: any) {
                 ))}
               </ul>
             </div>
+            <div className="flex-1">
+              <h4 className="text-lg font-semibold text-blue-600">Common Values </h4>
+              <ul className="list-disc pl-4 max-h-60 overflow-y-auto">
+                {common.map((item: string, index: number) => (
+                  <li key={index} className="text-blue-500">{item}</li>
+                ))}
+              </ul>
+          </div>
           </div>
         </div>
       );
