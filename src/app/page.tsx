@@ -4,7 +4,7 @@ import { FaLinkedin, FaGithub } from 'react-icons/fa';
 import React, { useState , useRef} from 'react';
 import type { JSX } from 'react';
 import './globals.css';
-import { convertMillisecondsToHumanReadable, LiveCurrentTimePanel, convertDateTimeToMilliseconds, calculateTimeDifference,  addSubtractTime, formatDate, convertTimeZone, ExtendedTimeToolOutput,
+import { convertMillisecondsToHumanReadable, LiveCurrentTimePanel, convertDateTimeToMilliseconds, calculateTimeDifference,  addSubtractTime, formatDate, convertTimeZone, calculateAge, ExtendedTimeToolOutput,
   SampleInputHelper,
   getTimeToolPlaceholder} from './tools/TimeTools';
 import {
@@ -68,7 +68,8 @@ const tools = [
     'Calculate Time Difference',
     'Add/Subtract Time',
     'Format Date',
-    'Time Zone Converter'
+    'Time Zone Converter',
+    'Age Calculator'
   ] },
 ];
 
@@ -128,6 +129,8 @@ export default function Home() {
         setOutputData(formatDate(inputData1));
       } else if (selectedOption === 'Time Zone Converter') {
         setOutputData(convertTimeZone(inputData1, inputData2, extraOption));
+      } else if (selectedOption === 'Age Calculator') {
+        setOutputData(calculateAge(inputData1, inputData2 || undefined));
       }
 
       // List Tools
@@ -444,7 +447,40 @@ export default function Home() {
           <LiveCurrentTimePanel />
         </>
       );
-    } else if (selectedOption === 'JSONata') {
+    } else if (selectedOption === 'Age Calculator') {
+      return (
+        <>
+          <SampleInputHelper toolType="ageCalculator" />
+          <div className="space-y-4">
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <label className="block text-sm font-medium text-blue-700 mb-2">
+                🎂 Birth Date
+              </label>
+              <input
+                type="date"
+                className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                value={inputData1}
+                onChange={(e) => setInputData1(e.target.value)}
+              />
+              <div className="text-xs text-blue-600 mt-1">Enter your birth date</div>
+            </div>
+
+            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+              <label className="block text-sm font-medium text-green-700 mb-2">
+                📅 Target Date (Optional)
+              </label>
+              <input
+                type="date"
+                className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                value={inputData2}
+                onChange={(e) => setInputData2(e.target.value)}
+              />
+              <div className="text-xs text-green-600 mt-1">Leave empty to calculate age as of today</div>
+            </div>
+          </div>
+        </>
+      );
+    }else if (selectedOption === 'JSONata') {
       // return <JsonataTool />;
       return <JsonataTool ref={jsonataRef} />;
     } else {
@@ -478,6 +514,9 @@ export default function Home() {
     }
     if (selectedOption === 'Time Zone Converter' && outputData) {
       return <ExtendedTimeToolOutput outputData={outputData} toolType="timeZone" />;
+    }
+    if (selectedOption === 'Age Calculator' && outputData) {
+      return <ExtendedTimeToolOutput outputData={outputData} toolType="ageCalculator" />;
     }
     if (
       ['Unique list', 'Diff of two lists', 'Intersection of two lists', 'Find duplicate items', 'Sort a list'].includes(selectedOption || '')

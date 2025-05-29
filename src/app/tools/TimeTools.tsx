@@ -207,6 +207,142 @@ export function convertTimeZone(dateInput: string, fromTz: string, toTz: string)
   }
 }
 
+export function calculateAge(birthDate: string, targetDate?: string) {
+  try {
+    const birth = new Date(birthDate.trim());
+    const target = targetDate ? new Date(targetDate.trim()) : new Date();
+
+    if (isNaN(birth.getTime()) || (targetDate && isNaN(target.getTime()))) {
+      return { error: 'Invalid date format. Please enter valid dates.' };
+    }
+
+    if (birth > target) {
+      return { error: 'Birth date cannot be in the future.' };
+    }
+
+    // Calculate age in years
+    let years = target.getFullYear() - birth.getFullYear();
+    let months = target.getMonth() - birth.getMonth();
+    let days = target.getDate() - birth.getDate();
+
+    // Adjust for negative months
+    if (months < 0) {
+      years--;
+      months += 12;
+    }
+
+    // Adjust for negative days
+    if (days < 0) {
+      months--;
+      if (months < 0) {
+        years--;
+        months += 12;
+      }
+      const daysInPrevMonth = new Date(target.getFullYear(), target.getMonth(), 0).getDate();
+      days += daysInPrevMonth;
+    }
+
+    // Calculate total statistics
+    const totalDays = Math.floor((target.getTime() - birth.getTime()) / (1000 * 60 * 60 * 24));
+    const totalWeeks = Math.floor(totalDays / 7);
+    const totalMonths = years * 12 + months;
+    const totalHours = totalDays * 24;
+    const totalMinutes = totalHours * 60;
+    const totalSeconds = totalMinutes * 60;
+
+    // Create birthday for current year
+    let nextBirthday = new Date(target.getFullYear(), birth.getMonth(), birth.getDate());
+
+    // Check if this year's birthday has already passed
+    // We need to compare month and day, not just the full date
+    const currentMonth = target.getMonth();
+    const currentDay = target.getDate();
+    const birthMonth = birth.getMonth();
+    const birthDay = birth.getDate();
+
+    // If birthday month hasn't come yet this year, or it's the birthday month but day hasn't come yet
+    const birthdayHasPassed =
+      currentMonth > birthMonth ||
+      (currentMonth === birthMonth && currentDay > birthDay);
+
+    // If birthday has passed this year, move to next year
+    if (birthdayHasPassed) {
+      nextBirthday = new Date(target.getFullYear() + 1, birth.getMonth(), birth.getDate());
+    }
+
+    // Handle leap year edge case for Feb 29 birthdays
+    if (birth.getMonth() === 1 && birth.getDate() === 29) {
+      // If next year is not a leap year, celebrate on Feb 28
+      if (!isLeapYear(nextBirthday.getFullYear())) {
+        nextBirthday = new Date(nextBirthday.getFullYear(), 1, 28);
+      }
+    }
+
+    // Calculate days to next birthday
+    const daysToNextBirthday = Math.ceil((nextBirthday.getTime() - target.getTime()) / (1000 * 60 * 60 * 24));
+
+    // Calculate zodiac sign
+    const zodiacSign = getZodiacSign(birth.getMonth() + 1, birth.getDate());
+
+    return {
+      exact: `${years} years, ${months} months, ${days} days`,
+      years,
+      months: totalMonths,
+      weeks: totalWeeks,
+      days: totalDays,
+      hours: totalHours,
+      minutes: totalMinutes,
+      seconds: totalSeconds,
+      nextBirthday: nextBirthday.toDateString(),
+      daysToNextBirthday,
+      zodiacSign,
+      birthDate: birth.toDateString(),
+      targetDate: target.toDateString(),
+      ageInYears: years + (months / 12) + (days / 365.25)
+    };
+  } catch (error) {
+    return { error: 'Error calculating age.' };
+  }
+}
+
+// Helper function to check if a year is a leap year
+function isLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+}
+
+// Helper function to get zodiac sign
+function getZodiacSign(month: number, day: number): string {
+  const zodiacSigns = [
+    { sign: '♑ Capricorn', start: [12, 22], end: [1, 19] },
+    { sign: '♒ Aquarius', start: [1, 20], end: [2, 18] },
+    { sign: '♓ Pisces', start: [2, 19], end: [3, 20] },
+    { sign: '♈ Aries', start: [3, 21], end: [4, 19] },
+    { sign: '♉ Taurus', start: [4, 20], end: [5, 20] },
+    { sign: '♊ Gemini', start: [5, 21], end: [6, 20] },
+    { sign: '♋ Cancer', start: [6, 21], end: [7, 22] },
+    { sign: '♌ Leo', start: [7, 23], end: [8, 22] },
+    { sign: '♍ Virgo', start: [8, 23], end: [9, 22] },
+    { sign: '♎ Libra', start: [9, 23], end: [10, 22] },
+    { sign: '♏ Scorpio', start: [10, 23], end: [11, 21] },
+    { sign: '♐ Sagittarius', start: [11, 22], end: [12, 21] }
+  ];
+
+  for (const zodiac of zodiacSigns) {
+    const [startMonth, startDay] = zodiac.start;
+    const [endMonth, endDay] = zodiac.end;
+
+    if (
+      (month === startMonth && day >= startDay) ||
+      (month === endMonth && day <= endDay) ||
+      (startMonth === 12 && month === 1 && day <= endDay)
+    ) {
+      return zodiac.sign;
+    }
+  }
+
+  return '♑ Capricorn'; // Default fallback
+}
+
 // Enhanced Live Current Time Panel with Copy Functionality
 export function LiveCurrentTimePanel() {
   const [now, setNow] = React.useState<Date>(new Date());
@@ -312,6 +448,16 @@ export function SampleInputHelper({ toolType }: { toolType: string }) {
             'To: Asia/Tokyo'
           ],
           description: 'Convert between time zones'
+        };
+      case 'ageCalculator':
+        return {
+          examples: [
+            'Birth Date: 1990-05-15',
+            'Birth Date: May 15, 1990',
+            'Birth Date: 15/05/1990',
+            'Target Date: 2024-01-01 (optional - defaults to today)'
+          ],
+          description: 'Calculate exact age from birth date'
         };
       default:
         return {
@@ -515,6 +661,80 @@ export function ExtendedTimeToolOutput({ outputData, toolType }: { outputData: a
                    title="Click to copy">
                 {outputData.utc}
               </div>
+            </div>
+          </div>
+        </div>
+      );
+    case 'ageCalculator':
+      return (
+        <div className="flex flex-col space-y-4 w-full">
+          <div className="bg-white shadow-lg rounded-lg p-6 w-full space-y-6">
+            <div className="text-center">
+              <div className="text-gray-600 text-lg">🎂 Age Calculator</div>
+              <div className="font-bold text-3xl text-blue-600 mt-2">{outputData.exact}</div>
+              <div className="text-sm text-gray-500 mt-1">
+                Born on {outputData.birthDate} • Calculated on {outputData.targetDate}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-blue-50 p-4 rounded-lg text-center">
+                <div className="text-gray-600 text-sm">Years</div>
+                <div className="font-mono text-2xl font-bold text-blue-600">{outputData.years}</div>
+              </div>
+              <div className="bg-green-50 p-4 rounded-lg text-center">
+                <div className="text-gray-600 text-sm">Total Months</div>
+                <div className="font-mono text-2xl font-bold text-green-600">{outputData.months.toLocaleString()}</div>
+              </div>
+              <div className="bg-purple-50 p-4 rounded-lg text-center">
+                <div className="text-gray-600 text-sm">Total Weeks</div>
+                <div className="font-mono text-2xl font-bold text-purple-600">{outputData.weeks.toLocaleString()}</div>
+              </div>
+              <div className="bg-orange-50 p-4 rounded-lg text-center">
+                <div className="text-gray-600 text-sm">Total Days</div>
+                <div className="font-mono text-2xl font-bold text-orange-600">{outputData.days.toLocaleString()}</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-indigo-50 p-4 rounded-lg text-center">
+                <div className="text-gray-600 text-sm">Total Hours</div>
+                <div className="font-mono text-lg font-bold text-indigo-600">{outputData.hours.toLocaleString()}</div>
+              </div>
+              <div className="bg-pink-50 p-4 rounded-lg text-center">
+                <div className="text-gray-600 text-sm">Total Minutes</div>
+                <div className="font-mono text-lg font-bold text-pink-600">{outputData.minutes.toLocaleString()}</div>
+              </div>
+              <div className="bg-red-50 p-4 rounded-lg text-center">
+                <div className="text-gray-600 text-sm">Total Seconds</div>
+                <div className="font-mono text-lg font-bold text-red-600">{outputData.seconds.toLocaleString()}</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+              <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                <div className="text-yellow-700 text-sm font-medium mb-2">🎉 Next Birthday</div>
+                <div className="font-mono text-sm text-yellow-800">{outputData.nextBirthday}</div>
+                <div className="text-xs text-yellow-600 mt-1">
+                  {outputData.daysToNextBirthday} days to go
+                </div>
+              </div>
+              <div className="bg-cyan-50 p-4 rounded-lg border border-cyan-200">
+                <div className="text-cyan-700 text-sm font-medium mb-2">⭐ Zodiac Sign</div>
+                <div className="font-mono text-lg text-cyan-800">{outputData.zodiacSign}</div>
+                <div className="text-xs text-cyan-600 mt-1">
+                  Precise age: {outputData.ageInYears.toFixed(2)} years
+                </div>
+              </div>
+            </div>
+
+            <div className="text-center pt-4 border-t">
+              <button
+                className="bg-blue-500 text-white px-6 py-2 rounded-lg shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onClick={() => copyToClipboard(outputData.exact)}
+              >
+                📋 Copy Age Details
+              </button>
             </div>
           </div>
         </div>
