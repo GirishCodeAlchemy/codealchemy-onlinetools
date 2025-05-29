@@ -135,20 +135,15 @@ export default function Home() {
 
       // List Tools
       else if (selectedOption === 'Unique list') {
-        const result = uniqueList(inputData1, extraOption);
-        setOutputData(result)
+        setOutputData(uniqueList(inputData1, extraOption));
       } else if (selectedOption === 'Diff of two lists') {
-        const result = diffOfTwoLists(inputData1, inputData2, extraOption);
-        setOutputData(result);
+        setOutputData(diffOfTwoLists(inputData1, inputData2, extraOption));
       } else if (selectedOption === 'Intersection of two lists') {
-        const result = intersectionOfTwoLists(inputData1, inputData2, extraOption);
-        setOutputData(result);
+        setOutputData(intersectionOfTwoLists(inputData1, inputData2, extraOption));
       } else if (selectedOption === 'Find duplicate items') {
-        const result = findDuplicates(inputData1, extraOption);
-        setOutputData(result);
+        setOutputData(findDuplicates(inputData1, extraOption));
       } else if (selectedOption === 'Sort a list') {
-        const result = sortList(inputData1, extraOption);
-        setOutputData(result);
+        setOutputData(sortList(inputData1, extraOption));
       }
       // JSON Tools
       else if (selectedOption === 'Prettify JSON') {
@@ -162,7 +157,9 @@ export default function Home() {
       } else if (selectedOption === 'Fix the JSON') {
         setOutputData(fixJSON(inputData1));
       }else if (selectedOption === 'JSONata') {
-        jsonataRef.current?.run();
+        if (jsonataRef.current) {
+          jsonataRef.current.run();
+        }
         return;
       } else {
         setOutputData('Action not implemented yet.');
@@ -192,26 +189,71 @@ export default function Home() {
   };
 
   const renderInputFields = () => {
-    if (['Diff of two lists', 'Diff of two JSONs', 'Intersection of two lists'].includes(selectedOption || '')) {
+    if (['Diff of two lists', 'Intersection of two lists'].includes(selectedOption || '')) {
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-          <textarea
-            className="w-full flex-1 p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter first input..."
-            value={inputData1}
-            onChange={(e) => setInputData1(e.target.value)}
-            style={{ height: '50%' }}
-          />
-          <textarea
-            className="w-full flex-1 p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter second input..."
-            value={inputData2}
-            onChange={(e) => setInputData2(e.target.value)}
-            style={{ height: '50%' }}
-          />
+        <div className="space-y-4 h-full">
+          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+            <label className="block text-sm font-medium text-blue-700 mb-2">
+              📝 First List
+            </label>
+            <textarea
+              className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              placeholder="apple&#10;banana&#10;cherry&#10;(one item per line)"
+              value={inputData1}
+              onChange={(e) => setInputData1(e.target.value)}
+              style={{ height: '45%', minHeight: '200px' }}
+            />
+            <div className="text-xs text-blue-600 mt-1">Enter items separated by new lines</div>
+          </div>
+
+          <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+            <label className="block text-sm font-medium text-green-700 mb-2">
+              📝 Second List
+            </label>
+            <textarea
+              className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+              placeholder="banana&#10;cherry&#10;date&#10;(one item per line)"
+              value={inputData2}
+              onChange={(e) => setInputData2(e.target.value)}
+              style={{ height: '45%', minHeight: '200px' }}
+            />
+            <div className="text-xs text-green-600 mt-1">Enter items separated by new lines</div>
+          </div>
         </div>
       );
-    } else if (selectedOption === 'Milliseconds to Date/Time') {
+    } else if (['Diff of two JSONs'].includes(selectedOption || '')) {
+        return (
+          <div className="space-y-4 h-full">
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <label className="block text-sm font-medium text-blue-700 mb-2">
+                📄 First JSON
+              </label>
+              <textarea
+                className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white font-mono text-sm"
+                placeholder='{"name": "John", "age": 30, "city": "New York"}'
+                value={inputData1}
+                onChange={(e) => setInputData1(e.target.value)}
+                style={{ height: '45%', minHeight: '200px' }}
+              />
+              <div className="text-xs text-blue-600 mt-1">Enter your first JSON object</div>
+            </div>
+
+            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+              <label className="block text-sm font-medium text-green-700 mb-2">
+                📄 Second JSON
+              </label>
+              <textarea
+                className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white font-mono text-sm"
+                placeholder='{"name": "Jane", "age": 25, "country": "USA"}'
+                value={inputData2}
+                onChange={(e) => setInputData2(e.target.value)}
+                style={{ height: '45%', minHeight: '200px' }}
+              />
+              <div className="text-xs text-green-600 mt-1">Enter your second JSON object</div>
+            </div>
+          </div>
+        );
+      } else if (selectedOption === 'Milliseconds to Date/Time') {
         return (
         <>
           <SampleInputHelper toolType="milliseconds" />
@@ -480,7 +522,55 @@ export default function Home() {
           </div>
         </>
       );
-    }else if (selectedOption === 'JSONata') {
+    } else if (['Prettify JSON', 'Stringify', 'Fix the JSON', 'Flatten array'].includes(selectedOption || '')) {
+      const getPlaceholder = () => {
+        switch (selectedOption) {
+          case 'Prettify JSON':
+            return '{"name":"John","age":30,"city":"New York"}';
+          case 'Stringify':
+            return '{\n  "name": "John",\n  "age": 30,\n  "city": "New York"\n}';
+          case 'Fix the JSON':
+            return '{name: "John", age: 30, city: "New York"}';
+          case 'Flatten array':
+            return '[[1, 2], [3, [4, 5]], 6]';
+          default:
+            return 'Enter your JSON here...';
+        }
+      };
+
+      const getHelpText = () => {
+        switch (selectedOption) {
+          case 'Prettify JSON':
+            return 'Enter minified JSON to format it with proper indentation';
+          case 'Stringify':
+            return 'Enter formatted JSON to convert it to a single line string';
+          case 'Fix the JSON':
+            return 'Enter malformed JSON (missing quotes, trailing commas, etc.)';
+          case 'Flatten array':
+            return 'Enter a nested array to flatten it completely';
+          default:
+            return '';
+        }
+      };
+
+      return (
+        <div className="space-y-4 h-full">
+          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+            <label className="block text-sm font-medium text-blue-700 mb-2">
+              📄 {selectedOption}
+            </label>
+            <textarea
+              className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white font-mono text-sm"
+              placeholder={getPlaceholder()}
+              value={inputData1}
+              onChange={(e) => setInputData1(e.target.value)}
+              style={{ height: '80%', minHeight: '300px' }}
+            />
+            <div className="text-xs text-blue-600 mt-1">{getHelpText()}</div>
+          </div>
+        </div>
+      );
+    } else if (selectedOption === 'JSONata') {
       // return <JsonataTool />;
       return <JsonataTool ref={jsonataRef} />;
     } else {
@@ -663,7 +753,7 @@ export default function Home() {
               <div className="flex justify-between items-center mb-2">
                 <h3 className="text-lg font-semibold text-blue-600">Input</h3>
                 {selectedOption && renderExtraOptions()}
-                {['Diff of two lists', 'Diff of two JSONs', 'Intersection of two lists'].includes(selectedOption || '') ? (
+                {['Diff of two lists', 'Intersection of two lists'].includes(selectedOption || '') ? (
                   <div className="flex space-x-4">
                     <span className="bg-blue-100 text-blue-800 font-semibold px-3 py-1 rounded">
                       List1: ( {calculateCount(inputData1)} )
@@ -693,7 +783,7 @@ export default function Home() {
             <div className="flex-1 p-4 border-l overflow-auto">
               <div className="flex justify-between items-center mb-2">
                 <h3 className="text-lg font-semibold text-blue-600">Output</h3>
-                {['Diff of two lists', 'Diff of two JSONs'].includes(selectedOption || '') && outputData ? (
+                {['Diff of two lists'].includes(selectedOption || '') && outputData ? (
                 <div className="flex space-x-4">
                   <span className="bg-green-100 text-green-800 font-semibold px-3 py-1 rounded">
                     List1: ( {calculateCount(JSON.parse(outputData).diff1 || [])} )
