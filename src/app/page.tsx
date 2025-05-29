@@ -4,7 +4,9 @@ import { FaLinkedin, FaGithub } from 'react-icons/fa';
 import React, { useState , useRef} from 'react';
 import type { JSX } from 'react';
 import './globals.css';
-import { convertMillisecondsToHumanReadable, TimeToolOutput, LiveCurrentTimePanel } from './tools/TimeTools';
+import { convertMillisecondsToHumanReadable, LiveCurrentTimePanel, convertDateTimeToMilliseconds, calculateTimeDifference,  addSubtractTime, formatDate, convertTimeZone, ExtendedTimeToolOutput,
+  SampleInputHelper,
+  getTimeToolPlaceholder} from './tools/TimeTools';
 import {
   uniqueList,
   diffOfTwoLists,
@@ -61,7 +63,13 @@ const optionIcons: Record<string, JSX.Element> = {
 const tools = [
   { category: 'List Tools', options: ['Unique list', 'Diff of two lists', 'Intersection of two lists', 'Find duplicate items', 'Sort a list'] },
   { category: 'JSON Tools', options: ['JSONata','Prettify JSON', 'Flatten array', 'Diff of two JSONs', 'Stringify', 'Fix the JSON'] },
-  { category: 'Time Tools', options: ['Milliseconds to Date/Time'] },
+  { category: 'Time Tools', options: ['Milliseconds to Date/Time',
+    'Date/Time to Milliseconds',
+    'Calculate Time Difference',
+    'Add/Subtract Time',
+    'Format Date',
+    'Time Zone Converter'
+  ] },
 ];
 
 export default function Home() {
@@ -105,7 +113,23 @@ export default function Home() {
       // Time Tools
       if (selectedOption === 'Milliseconds to Date/Time') {
         setOutputData(convertMillisecondsToHumanReadable(inputData1));
+      } else if (selectedOption === 'Date/Time to Milliseconds') {
+        setOutputData(convertDateTimeToMilliseconds(inputData1));
+      } else if (selectedOption === 'Calculate Time Difference') {
+        setOutputData(calculateTimeDifference(inputData1, inputData2));
+      } else if (selectedOption === 'Add/Subtract Time') {
+        if (extraOption) {
+          const [operation, unit] = extraOption.split('-');
+          setOutputData(addSubtractTime(inputData1, inputData2, unit, operation));
+        } else {
+          setOutputData({ error: 'Please select time unit and operation' });
+        }
+      } else if (selectedOption === 'Format Date') {
+        setOutputData(formatDate(inputData1));
+      } else if (selectedOption === 'Time Zone Converter') {
+        setOutputData(convertTimeZone(inputData1, inputData2, extraOption));
       }
+
       // List Tools
       else if (selectedOption === 'Unique list') {
         const result = uniqueList(inputData1, extraOption);
@@ -185,15 +209,238 @@ export default function Home() {
         </div>
       );
     } else if (selectedOption === 'Milliseconds to Date/Time') {
-      return (
+        return (
         <>
+          <SampleInputHelper toolType="milliseconds" />
           <textarea
             className="w-full h-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter milliseconds value here..."
+            placeholder={getTimeToolPlaceholder('Milliseconds to Date/Time')}
             value={inputData1}
             onChange={(e) => setInputData1(e.target.value)}
             style={{ height: '10%' }}
           />
+          <LiveCurrentTimePanel />
+        </>
+      );
+    } else if (selectedOption === 'Date/Time to Milliseconds') {
+      return (
+        <>
+          <SampleInputHelper toolType="dateToMs" />
+          <textarea
+            className="w-full h-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder={getTimeToolPlaceholder('Date/Time to Milliseconds')}
+            value={inputData1}
+            onChange={(e) => setInputData1(e.target.value)}
+            style={{ height: '10%' }}
+          />
+          <LiveCurrentTimePanel />
+        </>
+      );
+    } else if (selectedOption === 'Calculate Time Difference') {
+      return (
+        <>
+          <SampleInputHelper toolType="timeDifference" />
+          <div className="space-y-4">
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <label className="block text-sm font-medium text-blue-700 mb-2">
+                📅 Start Date & Time
+              </label>
+              <input
+                type="datetime-local"
+                className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                value={inputData1}
+                onChange={(e) => setInputData1(e.target.value)}
+              />
+              <div className="text-xs text-blue-600 mt-1">Or enter any date format manually</div>
+            </div>
+
+            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+              <label className="block text-sm font-medium text-green-700 mb-2">
+                📅 End Date & Time
+              </label>
+              <input
+                type="datetime-local"
+                className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                value={inputData2}
+                onChange={(e) => setInputData2(e.target.value)}
+              />
+              <div className="text-xs text-green-600 mt-1">Or enter any date format manually</div>
+            </div>
+          </div>
+          <LiveCurrentTimePanel />
+        </>
+      );
+    } else if (selectedOption === 'Add/Subtract Time') {
+      return (
+        <>
+          <SampleInputHelper toolType="addSubtractTime" />
+          <div className="space-y-4">
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <label className="block text-sm font-medium text-blue-700 mb-2">
+                📅 Base Date & Time
+              </label>
+              <input
+                type="datetime-local"
+                className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                value={inputData1}
+                onChange={(e) => setInputData1(e.target.value)}
+              />
+              <div className="text-xs text-blue-600 mt-1">Or enter any date format manually</div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                <label className="block text-sm font-medium text-purple-700 mb-2">
+                  🔢 Amount
+                </label>
+                <input
+                  type="number"
+                  className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
+                  placeholder="e.g., 5"
+                  value={inputData2}
+                  onChange={(e) => setInputData2(e.target.value)}
+                />
+              </div>
+
+              <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                <label className="block text-sm font-medium text-orange-700 mb-2">
+                  ⚡ Operation & Unit
+                </label>
+                <select
+                  className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+                  value={extraOption}
+                  onChange={(e) => setExtraOption(e.target.value)}
+                >
+                  <option value="">Select operation...</option>
+                  <optgroup label="➕ Add Time">
+                    <option value="add-seconds">Add Seconds</option>
+                    <option value="add-minutes">Add Minutes</option>
+                    <option value="add-hours">Add Hours</option>
+                    <option value="add-days">Add Days</option>
+                    <option value="add-months">Add Months</option>
+                    <option value="add-years">Add Years</option>
+                  </optgroup>
+                  <optgroup label="➖ Subtract Time">
+                    <option value="subtract-seconds">Subtract Seconds</option>
+                    <option value="subtract-minutes">Subtract Minutes</option>
+                    <option value="subtract-hours">Subtract Hours</option>
+                    <option value="subtract-days">Subtract Days</option>
+                    <option value="subtract-months">Subtract Months</option>
+                    <option value="subtract-years">Subtract Years</option>
+                  </optgroup>
+                </select>
+              </div>
+            </div>
+          </div>
+          <LiveCurrentTimePanel />
+        </>
+      );
+    } else if (selectedOption === 'Format Date') {
+      return (
+        <>
+          <SampleInputHelper toolType="formatDate" />
+          <textarea
+            className="w-full h-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder={getTimeToolPlaceholder('Format Date')}
+            value={inputData1}
+            onChange={(e) => setInputData1(e.target.value)}
+            style={{ height: '10%' }}
+          />
+          <LiveCurrentTimePanel />
+        </>
+      );
+    } else if (selectedOption === 'Time Zone Converter') {
+      return (
+        <>
+          <SampleInputHelper toolType="timeZone" />
+          <div className="space-y-4">
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <label className="block text-sm font-medium text-blue-700 mb-2">
+                📅 Date & Time to Convert
+              </label>
+              <input
+                type="datetime-local"
+                className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                value={inputData1}
+                onChange={(e) => setInputData1(e.target.value)}
+              />
+              <div className="text-xs text-blue-600 mt-1">Or enter any date format manually</div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                <label className="block text-sm font-medium text-green-700 mb-2">
+                  🌍 From Time Zone
+                </label>
+                <select
+                  className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                  value={inputData2}
+                  onChange={(e) => setInputData2(e.target.value)}
+                >
+                  <option value="">Select source timezone...</option>
+                  <optgroup label="🇺🇸 North America">
+                    <option value="America/New_York">Eastern Time (New York)</option>
+                    <option value="America/Chicago">Central Time (Chicago)</option>
+                    <option value="America/Denver">Mountain Time (Denver)</option>
+                    <option value="America/Los_Angeles">Pacific Time (Los Angeles)</option>
+                  </optgroup>
+                  <optgroup label="🇪🇺 Europe">
+                    <option value="Europe/London">London (GMT/BST)</option>
+                    <option value="Europe/Paris">Paris (CET/CEST)</option>
+                    <option value="Europe/Berlin">Berlin (CET/CEST)</option>
+                    <option value="Europe/Moscow">Moscow (MSK)</option>
+                  </optgroup>
+                  <optgroup label="🌏 Asia Pacific">
+                    <option value="Asia/Tokyo">Tokyo (JST)</option>
+                    <option value="Asia/Shanghai">Shanghai (CST)</option>
+                    <option value="Asia/Kolkata">Mumbai (IST)</option>
+                    <option value="Australia/Sydney">Sydney (AEST/AEDT)</option>
+                  </optgroup>
+                  <optgroup label="🌍 Other">
+                    <option value="UTC">UTC (Coordinated Universal Time)</option>
+                    <option value="Africa/Cairo">Cairo (EET/EEST)</option>
+                    <option value="America/Sao_Paulo">São Paulo (BRT/BRST)</option>
+                  </optgroup>
+                </select>
+              </div>
+
+              <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                <label className="block text-sm font-medium text-purple-700 mb-2">
+                  🎯 To Time Zone
+                </label>
+                <select
+                  className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
+                  value={extraOption}
+                  onChange={(e) => setExtraOption(e.target.value)}
+                >
+                  <option value="">Select target timezone...</option>
+                  <optgroup label="🇺🇸 North America">
+                    <option value="America/New_York">Eastern Time (New York)</option>
+                    <option value="America/Chicago">Central Time (Chicago)</option>
+                    <option value="America/Denver">Mountain Time (Denver)</option>
+                    <option value="America/Los_Angeles">Pacific Time (Los Angeles)</option>
+                  </optgroup>
+                  <optgroup label="🇪🇺 Europe">
+                    <option value="Europe/London">London (GMT/BST)</option>
+                    <option value="Europe/Paris">Paris (CET/CEST)</option>
+                    <option value="Europe/Berlin">Berlin (CET/CEST)</option>
+                    <option value="Europe/Moscow">Moscow (MSK)</option>
+                  </optgroup>
+                  <optgroup label="🌏 Asia Pacific">
+                    <option value="Asia/Tokyo">Tokyo (JST)</option>
+                    <option value="Asia/Shanghai">Shanghai (CST)</option>
+                    <option value="Asia/Kolkata">Mumbai (IST)</option>
+                    <option value="Australia/Sydney">Sydney (AEST/AEDT)</option>
+                  </optgroup>
+                  <optgroup label="🌍 Other">
+                    <option value="UTC">UTC (Coordinated Universal Time)</option>
+                    <option value="Africa/Cairo">Cairo (EET/EEST)</option>
+                    <option value="America/Sao_Paulo">São Paulo (BRT/BRST)</option>
+                  </optgroup>
+                </select>
+              </div>
+            </div>
+          </div>
           <LiveCurrentTimePanel />
         </>
       );
@@ -215,7 +462,22 @@ export default function Home() {
 
   const renderOutput = () => {
     if (selectedOption === 'Milliseconds to Date/Time' && outputData) {
-      return <TimeToolOutput outputData={outputData} />;
+      return <ExtendedTimeToolOutput outputData={outputData} toolType="default" />;
+    }
+    if (selectedOption === 'Date/Time to Milliseconds' && outputData) {
+      return <ExtendedTimeToolOutput outputData={outputData} toolType="default" />;
+    }
+    if (selectedOption === 'Calculate Time Difference' && outputData) {
+      return <ExtendedTimeToolOutput outputData={outputData} toolType="timeDifference" />;
+    }
+    if (selectedOption === 'Add/Subtract Time' && outputData) {
+      return <ExtendedTimeToolOutput outputData={outputData} toolType="addSubtractTime" />;
+    }
+    if (selectedOption === 'Format Date' && outputData) {
+      return <ExtendedTimeToolOutput outputData={outputData} toolType="formatDate" />;
+    }
+    if (selectedOption === 'Time Zone Converter' && outputData) {
+      return <ExtendedTimeToolOutput outputData={outputData} toolType="timeZone" />;
     }
     if (
       ['Unique list', 'Diff of two lists', 'Intersection of two lists', 'Find duplicate items', 'Sort a list'].includes(selectedOption || '')
@@ -371,7 +633,7 @@ export default function Home() {
                       List2: ( {calculateCount(inputData2)} )
                     </span>
                   </div>
-                ) : selectedOption === 'Milliseconds to Date/Time' ? null : (
+                ) : ['Milliseconds to Date/Time', 'Date/Time to Milliseconds', 'Calculate Time Difference', 'Add/Subtract Time', 'Format Date', 'Time Zone Converter'].includes(selectedOption || '') ? null : (
                   <span className="bg-blue-100 text-blue-800 font-semibold px-3 py-1 rounded">
                     Count: {calculateCount(inputData1)}
                   </span>
@@ -404,7 +666,7 @@ export default function Home() {
                     Common: ( {calculateCount(JSON.parse(outputData).common || [])} )
                   </span>
                 </div>
-              ) : selectedOption === 'Milliseconds to Date/Time' ? null : (
+                ) : ['Milliseconds to Date/Time', 'Date/Time to Milliseconds', 'Calculate Time Difference', 'Add/Subtract Time', 'Format Date', 'Time Zone Converter'].includes(selectedOption || '') ? null : (
                 <span className="bg-green-100 text-green-800 font-semibold px-3 py-1 rounded">
                   Count: {calculateCount(outputData)}
                 </span>
