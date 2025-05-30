@@ -229,162 +229,175 @@ export function JsonToolOutput({ outputData }: { outputData: any }) {
 
   // Helper function to create inline diff view
   const createInlineDiff = (obj1: any, obj2: any, differences: any) => {
-    const createDiffObject = (original: any, isFirst: boolean = true) => {
-      if (typeof original !== 'object' || original === null) {
-        return original;
-      }
-
-      const result: any = Array.isArray(original) ? [] : {};
-      const relevantDiffs = differences.details;
-
-      if (Array.isArray(original)) {
-        original.forEach((item: any, index: number) => {
-          const path = `[${index}]`;
-          const hasOnlyInFirst = relevantDiffs.onlyInFirst.some((diff: any) => diff.path.startsWith(path));
-          const hasOnlyInSecond = relevantDiffs.onlyInSecond.some((diff: any) => diff.path.startsWith(path));
-          const hasValueChanged = relevantDiffs.valueChanged.some((diff: any) => diff.path.startsWith(path));
-          const hasTypeChanged = relevantDiffs.typeChanged.some((diff: any) => diff.path.startsWith(path));
-
-          if (isFirst && hasOnlyInFirst) {
-            result[index] = { __diff: 'removed', __value: item, __path: path };
-          } else if (!isFirst && hasOnlyInSecond) {
-            result[index] = { __diff: 'added', __value: item, __path: path };
-          } else if (hasValueChanged || hasTypeChanged) {
-            result[index] = { __diff: 'modified', __value: item, __path: path };
-          } else if (typeof item === 'object' && item !== null) {
-            result[index] = createDiffObject(item, isFirst);
-          } else {
-            result[index] = item;
-          }
-        });
-      } else {
-        Object.keys(original).forEach(key => {
-          const path = key;
-          const hasOnlyInFirst = relevantDiffs.onlyInFirst.some((diff: any) => diff.path === path || diff.path.startsWith(path + '.'));
-          const hasOnlyInSecond = relevantDiffs.onlyInSecond.some((diff: any) => diff.path === path || diff.path.startsWith(path + '.'));
-          const hasValueChanged = relevantDiffs.valueChanged.some((diff: any) => diff.path === path || diff.path.startsWith(path + '.'));
-          const hasTypeChanged = relevantDiffs.typeChanged.some((diff: any) => diff.path === path || diff.path.startsWith(path + '.'));
-
-          if (isFirst && hasOnlyInFirst) {
-            result[key] = { __diff: 'removed', __value: original[key], __path: path };
-          } else if (!isFirst && hasOnlyInSecond) {
-            result[key] = { __diff: 'added', __value: original[key], __path: path };
-          } else if (hasValueChanged || hasTypeChanged) {
-            result[key] = { __diff: 'modified', __value: original[key], __path: path };
-          } else if (typeof original[key] === 'object' && original[key] !== null) {
-            result[key] = createDiffObject(original[key], isFirst);
-          } else {
-            result[key] = original[key];
-          }
-        });
-      }
-
-      return result;
-    };
-
-    return {
-      first: createDiffObject(obj1, true),
-      second: createDiffObject(obj2, false)
-    };
-  };
-
-  // Helper function to render JSON with diff highlighting
-  const renderDiffJSON = (obj: any, title: string, colorClass: string, allMismatches: any[]) => {
-    const renderValue = (value: any, depth: number = 0): any => {
-      const indent = '  '.repeat(depth);
-
-      if (value && typeof value === 'object' && value.__diff) {
-        const isHighlighted = highlightedPath && (
-          value.__path === highlightedPath ||
-          highlightedPath.startsWith(value.__path + '.') ||
-          value.__path?.startsWith(highlightedPath)
-        );
-
-        const diffClass =
-          value.__diff === 'removed' ? 'bg-red-100 text-red-800 line-through' :
-          value.__diff === 'added' ? 'bg-green-100 text-green-800' :
-          'bg-yellow-100 text-yellow-800';
-
-        const highlightClass = isHighlighted ? 'ring-2 ring-blue-500 shadow-lg' : '';
-
-        return (
-          <span
-            className={`${diffClass} ${highlightClass} px-1 rounded transition-all duration-300`}
-            id={`diff-${value.__path}`}
-          >
-            {JSON.stringify(value.__value)}
-          </span>
-        );
-      }
-
-      if (Array.isArray(value)) {
-        if (value.length === 0) return '[]';
-        return (
-          <span>
-            [<br />
-            {value.map((item, index) => (
-              <span key={index}>
-                {indent}  {renderValue(item, depth + 1)}
-                {index < value.length - 1 ? ',' : ''}<br />
-              </span>
-            ))}
-            {indent}]
-          </span>
-        );
-      }
-
-      if (typeof value === 'object' && value !== null) {
-        const keys = Object.keys(value);
-        if (keys.length === 0) return '{}';
-        return (
-          <span>
-            {`{`}<br />
-            {keys.map((key, index) => (
-              <span key={key}>
-                {indent}  "{key}": {renderValue(value[key], depth + 1)}
-                {index < keys.length - 1 ? ',' : ''}<br />
-              </span>
-            ))}
-            {indent}{`}`}
-          </span>
-        );
-      }
-
-      return JSON.stringify(value);
-    };
-
-    return (
-      <div className={`${colorClass} border rounded-lg p-4`}>
-        <h5 className="font-semibold mb-2">{title}</h5>
-        <pre className="font-mono text-sm whitespace-pre-wrap overflow-auto bg-white p-3 rounded border max-h-96">
-          {renderValue(obj)}
-        </pre>
-      </div>
-    );
-  };
-
-  // Navigation functions
-  const navigateToMismatch = (direction: 'next' | 'prev', allMismatches: any[]) => {
-    if (allMismatches.length === 0) return;
-
-    let newIndex;
-    if (direction === 'next') {
-      newIndex = currentMismatchIndex >= allMismatches.length - 1 ? 0 : currentMismatchIndex + 1;
-    } else {
-      newIndex = currentMismatchIndex <= 0 ? allMismatches.length - 1 : currentMismatchIndex - 1;
+  const createDiffObject = (original: any, isFirst: boolean = true, currentPath: string = '') => {
+    if (typeof original !== 'object' || original === null) {
+      return original;
     }
 
-    setCurrentMismatchIndex(newIndex);
-    setHighlightedPath(allMismatches[newIndex].path);
+    const result: any = Array.isArray(original) ? [] : {};
+    const relevantDiffs = differences.details;
 
-    // Scroll to highlighted element
-    setTimeout(() => {
-      const element = document.getElementById(`diff-${allMismatches[newIndex].path}`);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }, 100);
+    if (Array.isArray(original)) {
+      original.forEach((item: any, index: number) => {
+        const path = currentPath ? `${currentPath}[${index}]` : `[${index}]`;
+
+        // Check for exact path matches
+        const hasOnlyInFirst = relevantDiffs.onlyInFirst.some((diff: any) => diff.path === path);
+        const hasOnlyInSecond = relevantDiffs.onlyInSecond.some((diff: any) => diff.path === path);
+        const hasValueChanged = relevantDiffs.valueChanged.some((diff: any) => diff.path === path);
+        const hasTypeChanged = relevantDiffs.typeChanged.some((diff: any) => diff.path === path);
+
+        if (isFirst && hasOnlyInFirst) {
+          result[index] = { __diff: 'removed', __value: item, __path: path };
+        } else if (!isFirst && hasOnlyInSecond) {
+          result[index] = { __diff: 'added', __value: item, __path: path };
+        } else if (hasValueChanged || hasTypeChanged) {
+          result[index] = { __diff: 'modified', __value: item, __path: path };
+        } else if (typeof item === 'object' && item !== null) {
+          result[index] = createDiffObject(item, isFirst, path);
+        } else {
+          result[index] = item;
+        }
+      });
+    } else {
+      Object.keys(original).forEach(key => {
+        const path = currentPath ? `${currentPath}.${key}` : key;
+
+        // Check for exact path matches
+        const hasOnlyInFirst = relevantDiffs.onlyInFirst.some((diff: any) => diff.path === path);
+        const hasOnlyInSecond = relevantDiffs.onlyInSecond.some((diff: any) => diff.path === path);
+        const hasValueChanged = relevantDiffs.valueChanged.some((diff: any) => diff.path === path);
+        const hasTypeChanged = relevantDiffs.typeChanged.some((diff: any) => diff.path === path);
+
+        if (isFirst && hasOnlyInFirst) {
+          result[key] = { __diff: 'removed', __value: original[key], __path: path };
+        } else if (!isFirst && hasOnlyInSecond) {
+          result[key] = { __diff: 'added', __value: original[key], __path: path };
+        } else if (hasValueChanged || hasTypeChanged) {
+          result[key] = { __diff: 'modified', __value: original[key], __path: path };
+        } else if (typeof original[key] === 'object' && original[key] !== null) {
+          result[key] = createDiffObject(original[key], isFirst, path);
+        } else {
+          result[key] = original[key];
+        }
+      });
+    }
+
+    return result;
   };
+
+  return {
+    first: createDiffObject(obj1, true),
+    second: createDiffObject(obj2, false)
+  };
+};
+
+// Helper function to render JSON with diff highlighting
+const renderDiffJSON = (obj: any, title: string, colorClass: string, allMismatches: any[]) => {
+  const renderValue = (value: any, depth: number = 0): any => {
+    const indent = '  '.repeat(depth);
+
+    if (value && typeof value === 'object' && value.__diff && value.__path) {
+      // Exact path matching for highlighting
+      const isHighlighted = highlightedPath === value.__path;
+
+      const diffClass =
+        value.__diff === 'removed' ? 'bg-red-100 text-red-800 line-through' :
+        value.__diff === 'added' ? 'bg-green-100 text-green-800' :
+        'bg-yellow-100 text-yellow-800';
+
+      const highlightClass = isHighlighted ? 'ring-2 ring-blue-500 shadow-lg animate-pulse' : '';
+
+      return (
+        <span
+          className={`${diffClass} ${highlightClass} px-1 rounded transition-all duration-300`}
+          id={`diff-${value.__path}`}
+        >
+          {JSON.stringify(value.__value)}
+        </span>
+      );
+    }
+
+    if (Array.isArray(value)) {
+      if (value.length === 0) return '[]';
+      return (
+        <span>
+          [<br />
+          {value.map((item, index) => (
+            <span key={index}>
+              {indent}  {renderValue(item, depth + 1)}
+              {index < value.length - 1 ? ',' : ''}<br />
+            </span>
+          ))}
+          {indent}]
+        </span>
+      );
+    }
+
+    if (typeof value === 'object' && value !== null) {
+      const keys = Object.keys(value);
+      if (keys.length === 0) return '{}';
+      return (
+        <span>
+          {`{`}<br />
+          {keys.map((key, index) => (
+            <span key={key}>
+              {indent}  "{key}": {renderValue(value[key], depth + 1)}
+              {index < keys.length - 1 ? ',' : ''}<br />
+            </span>
+          ))}
+          {indent}{`}`}
+        </span>
+      );
+    }
+
+    return JSON.stringify(value);
+  };
+
+  return (
+    <div className={`${colorClass} border rounded-lg p-4`}>
+      <h5 className="font-semibold mb-2">{title}</h5>
+      <pre className="font-mono text-sm whitespace-pre-wrap overflow-auto bg-white p-3 rounded border min-h-96 max-h-[600px]">
+        {renderValue(obj)}
+      </pre>
+    </div>
+  );
+};
+
+// Navigation functions
+const navigateToMismatch = (direction: 'next' | 'prev', allMismatches: any[]) => {
+  if (allMismatches.length === 0) return;
+
+  let newIndex;
+  if (direction === 'next') {
+    newIndex = currentMismatchIndex >= allMismatches.length - 1 ? 0 : currentMismatchIndex + 1;
+  } else {
+    newIndex = currentMismatchIndex <= 0 ? allMismatches.length - 1 : currentMismatchIndex - 1;
+  }
+
+  setCurrentMismatchIndex(newIndex);
+  setHighlightedPath(allMismatches[newIndex].path);
+
+  // Debug logging
+  console.log('Navigating to:', {
+    index: newIndex,
+    path: allMismatches[newIndex].path,
+    type: allMismatches[newIndex].type
+  });
+
+  // Scroll to highlighted element with a longer delay
+  setTimeout(() => {
+    const element = document.getElementById(`diff-${allMismatches[newIndex].path}`);
+    console.log('Found element:', element);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Add a temporary flash effect
+      element.style.animation = 'none';
+      element.offsetHeight; // Trigger reflow
+      element.style.animation = 'pulse 1s ease-in-out 2';
+    }
+  }, 200);
+};
 
   // Handle JSON diff output with special formatting
   if (outputData && typeof outputData === 'object' && outputData.summary && outputData.details) {
@@ -490,6 +503,10 @@ export function JsonToolOutput({ outputData }: { outputData: any }) {
                         'Type Changed'
                       }
                     </div>
+                    {/* Debug info */}
+                    <div className="text-xs text-gray-500 mt-1">
+                      <strong>Debug:</strong> Highlighted Path: "{highlightedPath}"
+                    </div>
                   </div>
                 )}
               </div>
@@ -499,7 +516,7 @@ export function JsonToolOutput({ outputData }: { outputData: any }) {
             {inlineDiff && (
               <div className="bg-white shadow rounded-lg p-4">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3">👁️ Side-by-Side Diff View</h3>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-[500px]">
                   {renderDiffJSON(inlineDiff.first, "📄 First JSON", "bg-red-50 border-red-200", allMismatches)}
                   {renderDiffJSON(inlineDiff.second, "📄 Second JSON", "bg-green-50 border-green-200", allMismatches)}
                 </div>
