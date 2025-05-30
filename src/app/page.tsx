@@ -564,7 +564,13 @@ export default function Home() {
               placeholder={getPlaceholder()}
               value={inputData1}
               onChange={(e) => setInputData1(e.target.value)}
-              style={{ height: '80%', minHeight: '300px' }}
+              style={{
+                height: selectedOption === 'Stringify' ? '400px' : '80%',
+                minHeight: '300px',
+                resize: 'vertical',
+                wordBreak: 'break-all',
+                whiteSpace: 'pre-wrap'
+              }}
             />
             <div className="text-xs text-blue-600 mt-1">{getHelpText()}</div>
           </div>

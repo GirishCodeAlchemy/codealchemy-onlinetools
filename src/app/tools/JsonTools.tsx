@@ -229,175 +229,175 @@ export function JsonToolOutput({ outputData }: { outputData: any }) {
 
   // Helper function to create inline diff view
   const createInlineDiff = (obj1: any, obj2: any, differences: any) => {
-  const createDiffObject = (original: any, isFirst: boolean = true, currentPath: string = '') => {
-    if (typeof original !== 'object' || original === null) {
-      return original;
-    }
+    const createDiffObject = (original: any, isFirst: boolean = true, currentPath: string = '') => {
+      if (typeof original !== 'object' || original === null) {
+        return original;
+      }
 
-    const result: any = Array.isArray(original) ? [] : {};
-    const relevantDiffs = differences.details;
+      const result: any = Array.isArray(original) ? [] : {};
+      const relevantDiffs = differences.details;
 
-    if (Array.isArray(original)) {
-      original.forEach((item: any, index: number) => {
-        const path = currentPath ? `${currentPath}[${index}]` : `[${index}]`;
+      if (Array.isArray(original)) {
+        original.forEach((item: any, index: number) => {
+          const path = currentPath ? `${currentPath}[${index}]` : `[${index}]`;
 
-        // Check for exact path matches
-        const hasOnlyInFirst = relevantDiffs.onlyInFirst.some((diff: any) => diff.path === path);
-        const hasOnlyInSecond = relevantDiffs.onlyInSecond.some((diff: any) => diff.path === path);
-        const hasValueChanged = relevantDiffs.valueChanged.some((diff: any) => diff.path === path);
-        const hasTypeChanged = relevantDiffs.typeChanged.some((diff: any) => diff.path === path);
+          // Check for exact path matches
+          const hasOnlyInFirst = relevantDiffs.onlyInFirst.some((diff: any) => diff.path === path);
+          const hasOnlyInSecond = relevantDiffs.onlyInSecond.some((diff: any) => diff.path === path);
+          const hasValueChanged = relevantDiffs.valueChanged.some((diff: any) => diff.path === path);
+          const hasTypeChanged = relevantDiffs.typeChanged.some((diff: any) => diff.path === path);
 
-        if (isFirst && hasOnlyInFirst) {
-          result[index] = { __diff: 'removed', __value: item, __path: path };
-        } else if (!isFirst && hasOnlyInSecond) {
-          result[index] = { __diff: 'added', __value: item, __path: path };
-        } else if (hasValueChanged || hasTypeChanged) {
-          result[index] = { __diff: 'modified', __value: item, __path: path };
-        } else if (typeof item === 'object' && item !== null) {
-          result[index] = createDiffObject(item, isFirst, path);
-        } else {
-          result[index] = item;
-        }
-      });
+          if (isFirst && hasOnlyInFirst) {
+            result[index] = { __diff: 'removed', __value: item, __path: path };
+          } else if (!isFirst && hasOnlyInSecond) {
+            result[index] = { __diff: 'added', __value: item, __path: path };
+          } else if (hasValueChanged || hasTypeChanged) {
+            result[index] = { __diff: 'modified', __value: item, __path: path };
+          } else if (typeof item === 'object' && item !== null) {
+            result[index] = createDiffObject(item, isFirst, path);
+          } else {
+            result[index] = item;
+          }
+        });
+      } else {
+        Object.keys(original).forEach(key => {
+          const path = currentPath ? `${currentPath}.${key}` : key;
+
+          // Check for exact path matches
+          const hasOnlyInFirst = relevantDiffs.onlyInFirst.some((diff: any) => diff.path === path);
+          const hasOnlyInSecond = relevantDiffs.onlyInSecond.some((diff: any) => diff.path === path);
+          const hasValueChanged = relevantDiffs.valueChanged.some((diff: any) => diff.path === path);
+          const hasTypeChanged = relevantDiffs.typeChanged.some((diff: any) => diff.path === path);
+
+          if (isFirst && hasOnlyInFirst) {
+            result[key] = { __diff: 'removed', __value: original[key], __path: path };
+          } else if (!isFirst && hasOnlyInSecond) {
+            result[key] = { __diff: 'added', __value: original[key], __path: path };
+          } else if (hasValueChanged || hasTypeChanged) {
+            result[key] = { __diff: 'modified', __value: original[key], __path: path };
+          } else if (typeof original[key] === 'object' && original[key] !== null) {
+            result[key] = createDiffObject(original[key], isFirst, path);
+          } else {
+            result[key] = original[key];
+          }
+        });
+      }
+
+      return result;
+    };
+
+    return {
+      first: createDiffObject(obj1, true),
+      second: createDiffObject(obj2, false)
+    };
+  };
+
+  // Helper function to render JSON with diff highlighting
+  const renderDiffJSON = (obj: any, title: string, colorClass: string, allMismatches: any[]) => {
+    const renderValue = (value: any, depth: number = 0): any => {
+      const indent = '  '.repeat(depth);
+
+      if (value && typeof value === 'object' && value.__diff && value.__path) {
+        // Exact path matching for highlighting
+        const isHighlighted = highlightedPath === value.__path;
+
+        const diffClass =
+          value.__diff === 'removed' ? 'bg-red-100 text-red-800 line-through' :
+          value.__diff === 'added' ? 'bg-green-100 text-green-800' :
+          'bg-yellow-100 text-yellow-800';
+
+        const highlightClass = isHighlighted ? 'ring-2 ring-blue-500 shadow-lg animate-pulse' : '';
+
+        return (
+          <span
+            className={`${diffClass} ${highlightClass} px-1 rounded transition-all duration-300`}
+            id={`diff-${value.__path}`}
+          >
+            {JSON.stringify(value.__value)}
+          </span>
+        );
+      }
+
+      if (Array.isArray(value)) {
+        if (value.length === 0) return '[]';
+        return (
+          <span>
+            [<br />
+            {value.map((item, index) => (
+              <span key={index}>
+                {indent}  {renderValue(item, depth + 1)}
+                {index < value.length - 1 ? ',' : ''}<br />
+              </span>
+            ))}
+            {indent}]
+          </span>
+        );
+      }
+
+      if (typeof value === 'object' && value !== null) {
+        const keys = Object.keys(value);
+        if (keys.length === 0) return '{}';
+        return (
+          <span>
+            {`{`}<br />
+            {keys.map((key, index) => (
+              <span key={key}>
+                {indent}  "{key}": {renderValue(value[key], depth + 1)}
+                {index < keys.length - 1 ? ',' : ''}<br />
+              </span>
+            ))}
+            {indent}{`}`}
+          </span>
+        );
+      }
+
+      return JSON.stringify(value);
+    };
+
+    return (
+      <div className={`${colorClass} border rounded-lg p-4`}>
+        <h5 className="font-semibold mb-2">{title}</h5>
+        <pre className="font-mono text-sm whitespace-pre-wrap overflow-auto bg-white p-3 rounded border min-h-96 max-h-[600px]">
+          {renderValue(obj)}
+        </pre>
+      </div>
+    );
+  };
+
+  // Navigation functions
+  const navigateToMismatch = (direction: 'next' | 'prev', allMismatches: any[]) => {
+    if (allMismatches.length === 0) return;
+
+    let newIndex;
+    if (direction === 'next') {
+      newIndex = currentMismatchIndex >= allMismatches.length - 1 ? 0 : currentMismatchIndex + 1;
     } else {
-      Object.keys(original).forEach(key => {
-        const path = currentPath ? `${currentPath}.${key}` : key;
-
-        // Check for exact path matches
-        const hasOnlyInFirst = relevantDiffs.onlyInFirst.some((diff: any) => diff.path === path);
-        const hasOnlyInSecond = relevantDiffs.onlyInSecond.some((diff: any) => diff.path === path);
-        const hasValueChanged = relevantDiffs.valueChanged.some((diff: any) => diff.path === path);
-        const hasTypeChanged = relevantDiffs.typeChanged.some((diff: any) => diff.path === path);
-
-        if (isFirst && hasOnlyInFirst) {
-          result[key] = { __diff: 'removed', __value: original[key], __path: path };
-        } else if (!isFirst && hasOnlyInSecond) {
-          result[key] = { __diff: 'added', __value: original[key], __path: path };
-        } else if (hasValueChanged || hasTypeChanged) {
-          result[key] = { __diff: 'modified', __value: original[key], __path: path };
-        } else if (typeof original[key] === 'object' && original[key] !== null) {
-          result[key] = createDiffObject(original[key], isFirst, path);
-        } else {
-          result[key] = original[key];
-        }
-      });
+      newIndex = currentMismatchIndex <= 0 ? allMismatches.length - 1 : currentMismatchIndex - 1;
     }
 
-    return result;
+    setCurrentMismatchIndex(newIndex);
+    setHighlightedPath(allMismatches[newIndex].path);
+
+    // Debug logging
+    console.log('Navigating to:', {
+      index: newIndex,
+      path: allMismatches[newIndex].path,
+      type: allMismatches[newIndex].type
+    });
+
+    // Scroll to highlighted element with a longer delay
+    setTimeout(() => {
+      const element = document.getElementById(`diff-${allMismatches[newIndex].path}`);
+      console.log('Found element:', element);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Add a temporary flash effect
+        element.style.animation = 'none';
+        element.offsetHeight; // Trigger reflow
+        element.style.animation = 'pulse 1s ease-in-out 2';
+      }
+    }, 200);
   };
-
-  return {
-    first: createDiffObject(obj1, true),
-    second: createDiffObject(obj2, false)
-  };
-};
-
-// Helper function to render JSON with diff highlighting
-const renderDiffJSON = (obj: any, title: string, colorClass: string, allMismatches: any[]) => {
-  const renderValue = (value: any, depth: number = 0): any => {
-    const indent = '  '.repeat(depth);
-
-    if (value && typeof value === 'object' && value.__diff && value.__path) {
-      // Exact path matching for highlighting
-      const isHighlighted = highlightedPath === value.__path;
-
-      const diffClass =
-        value.__diff === 'removed' ? 'bg-red-100 text-red-800 line-through' :
-        value.__diff === 'added' ? 'bg-green-100 text-green-800' :
-        'bg-yellow-100 text-yellow-800';
-
-      const highlightClass = isHighlighted ? 'ring-2 ring-blue-500 shadow-lg animate-pulse' : '';
-
-      return (
-        <span
-          className={`${diffClass} ${highlightClass} px-1 rounded transition-all duration-300`}
-          id={`diff-${value.__path}`}
-        >
-          {JSON.stringify(value.__value)}
-        </span>
-      );
-    }
-
-    if (Array.isArray(value)) {
-      if (value.length === 0) return '[]';
-      return (
-        <span>
-          [<br />
-          {value.map((item, index) => (
-            <span key={index}>
-              {indent}  {renderValue(item, depth + 1)}
-              {index < value.length - 1 ? ',' : ''}<br />
-            </span>
-          ))}
-          {indent}]
-        </span>
-      );
-    }
-
-    if (typeof value === 'object' && value !== null) {
-      const keys = Object.keys(value);
-      if (keys.length === 0) return '{}';
-      return (
-        <span>
-          {`{`}<br />
-          {keys.map((key, index) => (
-            <span key={key}>
-              {indent}  "{key}": {renderValue(value[key], depth + 1)}
-              {index < keys.length - 1 ? ',' : ''}<br />
-            </span>
-          ))}
-          {indent}{`}`}
-        </span>
-      );
-    }
-
-    return JSON.stringify(value);
-  };
-
-  return (
-    <div className={`${colorClass} border rounded-lg p-4`}>
-      <h5 className="font-semibold mb-2">{title}</h5>
-      <pre className="font-mono text-sm whitespace-pre-wrap overflow-auto bg-white p-3 rounded border min-h-96 max-h-[600px]">
-        {renderValue(obj)}
-      </pre>
-    </div>
-  );
-};
-
-// Navigation functions
-const navigateToMismatch = (direction: 'next' | 'prev', allMismatches: any[]) => {
-  if (allMismatches.length === 0) return;
-
-  let newIndex;
-  if (direction === 'next') {
-    newIndex = currentMismatchIndex >= allMismatches.length - 1 ? 0 : currentMismatchIndex + 1;
-  } else {
-    newIndex = currentMismatchIndex <= 0 ? allMismatches.length - 1 : currentMismatchIndex - 1;
-  }
-
-  setCurrentMismatchIndex(newIndex);
-  setHighlightedPath(allMismatches[newIndex].path);
-
-  // Debug logging
-  console.log('Navigating to:', {
-    index: newIndex,
-    path: allMismatches[newIndex].path,
-    type: allMismatches[newIndex].type
-  });
-
-  // Scroll to highlighted element with a longer delay
-  setTimeout(() => {
-    const element = document.getElementById(`diff-${allMismatches[newIndex].path}`);
-    console.log('Found element:', element);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      // Add a temporary flash effect
-      element.style.animation = 'none';
-      element.offsetHeight; // Trigger reflow
-      element.style.animation = 'pulse 1s ease-in-out 2';
-    }
-  }, 200);
-};
 
   // Handle JSON diff output with special formatting
   if (outputData && typeof outputData === 'object' && outputData.summary && outputData.details) {
@@ -660,6 +660,66 @@ const navigateToMismatch = (direction: 'next' | 'prev', allMismatches: any[]) =>
     );
   }
 
+  if (outputData && typeof outputData === 'object' && outputData.type === 'stringified') {
+    return (
+      <div className="space-y-4">
+        <div className="bg-white shadow rounded-lg p-4">
+          <h3 className="text-lg font-semibold text-gray-800 mb-3">📄 Stringified JSON</h3>
+
+          {/* Summary Info */}
+          <div className="bg-blue-50 p-3 rounded-lg mb-4">
+            <div className="text-blue-800 text-sm">
+              <strong>Length:</strong> {outputData.length} characters
+            </div>
+            <div className="text-blue-700 text-xs mt-1">
+              JSON has been converted to a single-line string format
+            </div>
+          </div>
+
+          {/* Preview */}
+          <div className="mb-4">
+            <h4 className="font-semibold text-gray-700 mb-2">📋 Preview (first 100 characters):</h4>
+            <div className="bg-gray-50 p-3 rounded border">
+              <code className="text-sm text-gray-800 break-all">
+                {outputData.preview}
+              </code>
+            </div>
+          </div>
+
+          {/* Full Content - Scrollable */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="font-semibold text-gray-700">📜 Full Stringified JSON:</h4>
+              <button
+                onClick={() => copyToClipboard(outputData.content)}
+                className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-sm"
+              >
+                📋 Copy to Clipboard
+              </button>
+            </div>
+
+            {/* Scrollable container with word-break */}
+            <div className="bg-white border rounded p-3 max-h-96 overflow-auto">
+              <pre className="font-mono text-sm whitespace-pre-wrap break-all text-gray-800">
+                {outputData.content}
+              </pre>
+            </div>
+          </div>
+
+          {/* Usage Info */}
+          <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
+            <h5 className="font-semibold text-yellow-800 mb-1">💡 Usage Tips:</h5>
+            <ul className="text-yellow-700 text-sm space-y-1">
+              <li>• This format is ideal for API requests or data transmission</li>
+              <li>• Use the copy button to get the full stringified version</li>
+              <li>• The string is properly escaped and ready to use in code</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Default output for other JSON tools
   if (typeof outputData === 'object') {
     return <pre className={styles.output}>{JSON.stringify(outputData, null, 2)}</pre>;
@@ -670,9 +730,16 @@ const navigateToMismatch = (direction: 'next' | 'prev', allMismatches: any[]) =>
 export function stringifyJSON(input: string) {
   try {
     const obj = JSON.parse(input);
-    return JSON.stringify(obj);
+    // Return the stringified JSON with proper formatting info
+    const stringified = JSON.stringify(obj);
+    return {
+      type: 'stringified',
+      content: stringified,
+      length: stringified.length,
+      preview: stringified.length > 100 ? stringified.substring(0, 100) + '...' : stringified
+    };
   } catch {
-    return 'Invalid JSON input';
+    return { error: 'Invalid JSON input' };
   }
 }
 
