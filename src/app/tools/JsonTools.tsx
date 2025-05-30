@@ -40,6 +40,10 @@ export function diffOfTwoJSONs(input1: string, input2: string) {
         onlyInSecond: [] as any[],
         valueChanged: [] as any[],
         typeChanged: [] as any[]
+      },
+      originalData: {
+        json1,
+        json2
       }
     };
 
@@ -191,13 +195,236 @@ export function diffOfTwoJSONs(input1: string, input2: string) {
 
 // Enhanced JsonToolOutput component for better diff visualization
 export function JsonToolOutput({ outputData }: { outputData: any }) {
+  const [currentMismatchIndex, setCurrentMismatchIndex] = React.useState(0);
+  const [highlightedPath, setHighlightedPath] = React.useState<string>('');
+  const [showDetails, setShowDetails] = React.useState(false); // New state for toggling
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+  };
+
+  // Get all mismatches in order
+  const getAllMismatches = (differences: any) => {
+    const allMismatches: Array<{path: string, type: string, details: any}> = [];
+
+    differences.details.onlyInFirst.forEach((item: any) => {
+      allMismatches.push({ path: item.path, type: 'onlyInFirst', details: item });
+    });
+
+    differences.details.onlyInSecond.forEach((item: any) => {
+      allMismatches.push({ path: item.path, type: 'onlyInSecond', details: item });
+    });
+
+    differences.details.valueChanged.forEach((item: any) => {
+      allMismatches.push({ path: item.path, type: 'valueChanged', details: item });
+    });
+
+    differences.details.typeChanged.forEach((item: any) => {
+      allMismatches.push({ path: item.path, type: 'typeChanged', details: item });
+    });
+
+    // Sort by path for consistent navigation
+    return allMismatches.sort((a, b) => a.path.localeCompare(b.path));
+  };
+
+  // Helper function to create inline diff view
+  const createInlineDiff = (obj1: any, obj2: any, differences: any) => {
+    const createDiffObject = (original: any, isFirst: boolean = true) => {
+      if (typeof original !== 'object' || original === null) {
+        return original;
+      }
+
+      const result: any = Array.isArray(original) ? [] : {};
+      const relevantDiffs = differences.details;
+
+      if (Array.isArray(original)) {
+        original.forEach((item: any, index: number) => {
+          const path = `[${index}]`;
+          const hasOnlyInFirst = relevantDiffs.onlyInFirst.some((diff: any) => diff.path.startsWith(path));
+          const hasOnlyInSecond = relevantDiffs.onlyInSecond.some((diff: any) => diff.path.startsWith(path));
+          const hasValueChanged = relevantDiffs.valueChanged.some((diff: any) => diff.path.startsWith(path));
+          const hasTypeChanged = relevantDiffs.typeChanged.some((diff: any) => diff.path.startsWith(path));
+
+          if (isFirst && hasOnlyInFirst) {
+            result[index] = { __diff: 'removed', __value: item, __path: path };
+          } else if (!isFirst && hasOnlyInSecond) {
+            result[index] = { __diff: 'added', __value: item, __path: path };
+          } else if (hasValueChanged || hasTypeChanged) {
+            result[index] = { __diff: 'modified', __value: item, __path: path };
+          } else if (typeof item === 'object' && item !== null) {
+            result[index] = createDiffObject(item, isFirst);
+          } else {
+            result[index] = item;
+          }
+        });
+      } else {
+        Object.keys(original).forEach(key => {
+          const path = key;
+          const hasOnlyInFirst = relevantDiffs.onlyInFirst.some((diff: any) => diff.path === path || diff.path.startsWith(path + '.'));
+          const hasOnlyInSecond = relevantDiffs.onlyInSecond.some((diff: any) => diff.path === path || diff.path.startsWith(path + '.'));
+          const hasValueChanged = relevantDiffs.valueChanged.some((diff: any) => diff.path === path || diff.path.startsWith(path + '.'));
+          const hasTypeChanged = relevantDiffs.typeChanged.some((diff: any) => diff.path === path || diff.path.startsWith(path + '.'));
+
+          if (isFirst && hasOnlyInFirst) {
+            result[key] = { __diff: 'removed', __value: original[key], __path: path };
+          } else if (!isFirst && hasOnlyInSecond) {
+            result[key] = { __diff: 'added', __value: original[key], __path: path };
+          } else if (hasValueChanged || hasTypeChanged) {
+            result[key] = { __diff: 'modified', __value: original[key], __path: path };
+          } else if (typeof original[key] === 'object' && original[key] !== null) {
+            result[key] = createDiffObject(original[key], isFirst);
+          } else {
+            result[key] = original[key];
+          }
+        });
+      }
+
+      return result;
+    };
+
+    return {
+      first: createDiffObject(obj1, true),
+      second: createDiffObject(obj2, false)
+    };
+  };
+
+  // Helper function to render JSON with diff highlighting
+  const renderDiffJSON = (obj: any, title: string, colorClass: string, allMismatches: any[]) => {
+    const renderValue = (value: any, depth: number = 0): any => {
+      const indent = '  '.repeat(depth);
+
+      if (value && typeof value === 'object' && value.__diff) {
+        const isHighlighted = highlightedPath && (
+          value.__path === highlightedPath ||
+          highlightedPath.startsWith(value.__path + '.') ||
+          value.__path?.startsWith(highlightedPath)
+        );
+
+        const diffClass =
+          value.__diff === 'removed' ? 'bg-red-100 text-red-800 line-through' :
+          value.__diff === 'added' ? 'bg-green-100 text-green-800' :
+          'bg-yellow-100 text-yellow-800';
+
+        const highlightClass = isHighlighted ? 'ring-2 ring-blue-500 shadow-lg' : '';
+
+        return (
+          <span
+            className={`${diffClass} ${highlightClass} px-1 rounded transition-all duration-300`}
+            id={`diff-${value.__path}`}
+          >
+            {JSON.stringify(value.__value)}
+          </span>
+        );
+      }
+
+      if (Array.isArray(value)) {
+        if (value.length === 0) return '[]';
+        return (
+          <span>
+            [<br />
+            {value.map((item, index) => (
+              <span key={index}>
+                {indent}  {renderValue(item, depth + 1)}
+                {index < value.length - 1 ? ',' : ''}<br />
+              </span>
+            ))}
+            {indent}]
+          </span>
+        );
+      }
+
+      if (typeof value === 'object' && value !== null) {
+        const keys = Object.keys(value);
+        if (keys.length === 0) return '{}';
+        return (
+          <span>
+            {`{`}<br />
+            {keys.map((key, index) => (
+              <span key={key}>
+                {indent}  "{key}": {renderValue(value[key], depth + 1)}
+                {index < keys.length - 1 ? ',' : ''}<br />
+              </span>
+            ))}
+            {indent}{`}`}
+          </span>
+        );
+      }
+
+      return JSON.stringify(value);
+    };
+
+    return (
+      <div className={`${colorClass} border rounded-lg p-4`}>
+        <h5 className="font-semibold mb-2">{title}</h5>
+        <pre className="font-mono text-sm whitespace-pre-wrap overflow-auto bg-white p-3 rounded border max-h-96">
+          {renderValue(obj)}
+        </pre>
+      </div>
+    );
+  };
+
+  // Navigation functions
+  const navigateToMismatch = (direction: 'next' | 'prev', allMismatches: any[]) => {
+    if (allMismatches.length === 0) return;
+
+    let newIndex;
+    if (direction === 'next') {
+      newIndex = currentMismatchIndex >= allMismatches.length - 1 ? 0 : currentMismatchIndex + 1;
+    } else {
+      newIndex = currentMismatchIndex <= 0 ? allMismatches.length - 1 : currentMismatchIndex - 1;
+    }
+
+    setCurrentMismatchIndex(newIndex);
+    setHighlightedPath(allMismatches[newIndex].path);
+
+    // Scroll to highlighted element
+    setTimeout(() => {
+      const element = document.getElementById(`diff-${allMismatches[newIndex].path}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
+  };
+
   // Handle JSON diff output with special formatting
   if (outputData && typeof outputData === 'object' && outputData.summary && outputData.details) {
+    const allMismatches = getAllMismatches(outputData);
+
+    // Initialize highlighted path
+    React.useEffect(() => {
+      if (allMismatches.length > 0 && !highlightedPath) {
+        setHighlightedPath(allMismatches[0].path);
+      }
+    }, [allMismatches.length, highlightedPath]);
+
+    let inlineDiff = null;
+    try {
+      const originalData = outputData.originalData;
+      if (originalData) {
+        inlineDiff = createInlineDiff(originalData.json1, originalData.json2, outputData);
+      }
+    } catch (e) {
+      console.log('Could not create inline diff');
+    }
+
     return (
       <div className="space-y-4">
         {/* Summary Section */}
         <div className="bg-white shadow rounded-lg p-4">
-          <h3 className="text-lg font-semibold text-gray-800 mb-3">📊 Comparison Summary</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-semibold text-gray-800">📊 Comparison Summary</h3>
+            {/* Toggle Button */}
+            <button
+              onClick={() => setShowDetails(!showDetails)}
+              className={`px-4 py-2 rounded-lg transition-all duration-300 ${
+                showDetails
+                  ? 'bg-red-500 hover:bg-red-600 text-white'
+                  : 'bg-blue-500 hover:bg-blue-600 text-white'
+              }`}
+            >
+              {showDetails ? '🙈 Hide Details' : '🔍 Show Details'}
+            </button>
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-blue-50 p-3 rounded-lg text-center">
               <div className="text-gray-600 text-sm">Total Differences</div>
@@ -218,94 +445,189 @@ export function JsonToolOutput({ outputData }: { outputData: any }) {
           </div>
         </div>
 
-        {/* Details Section */}
-        {outputData.summary.totalDifferences === 0 ? (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-            <div className="text-green-700 font-semibold">✅ No differences found!</div>
-            <div className="text-green-600 text-sm">Both JSON objects are identical</div>
-          </div>
+        {/* Conditional Rendering based on showDetails */}
+        {!showDetails ? (
+          <>
+            {/* Navigation Controls - Only show when details are hidden */}
+            {allMismatches.length > 0 && (
+              <div className="bg-white shadow rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <h3 className="text-lg font-semibold text-gray-800">🧭 Navigate Differences</h3>
+                    <div className="text-sm text-gray-600">
+                      {currentMismatchIndex + 1} of {allMismatches.length}
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => navigateToMismatch('prev', allMismatches)}
+                      className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-sm"
+                      disabled={allMismatches.length === 0}
+                    >
+                      ← Previous
+                    </button>
+                    <button
+                      onClick={() => navigateToMismatch('next', allMismatches)}
+                      className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-sm"
+                      disabled={allMismatches.length === 0}
+                    >
+                      Next →
+                    </button>
+                  </div>
+                </div>
+
+                {/* Current Mismatch Info */}
+                {allMismatches[currentMismatchIndex] && (
+                  <div className="mt-3 p-3 bg-blue-50 rounded border border-blue-200">
+                    <div className="font-mono text-sm text-blue-800">
+                      <strong>Path:</strong> {allMismatches[currentMismatchIndex].path}
+                    </div>
+                    <div className="text-sm text-blue-700 mt-1">
+                      <strong>Type:</strong> {
+                        allMismatches[currentMismatchIndex].type === 'onlyInFirst' ? 'Only in First JSON' :
+                        allMismatches[currentMismatchIndex].type === 'onlyInSecond' ? 'Only in Second JSON' :
+                        allMismatches[currentMismatchIndex].type === 'valueChanged' ? 'Value Changed' :
+                        'Type Changed'
+                      }
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Inline Diff Section - Only show when details are hidden */}
+            {inlineDiff && (
+              <div className="bg-white shadow rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-gray-800 mb-3">👁️ Side-by-Side Diff View</h3>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {renderDiffJSON(inlineDiff.first, "📄 First JSON", "bg-red-50 border-red-200", allMismatches)}
+                  {renderDiffJSON(inlineDiff.second, "📄 Second JSON", "bg-green-50 border-green-200", allMismatches)}
+                </div>
+                <div className="mt-4 text-sm text-gray-600">
+                  <div className="flex flex-wrap gap-4">
+                    <span className="flex items-center">
+                      <span className="w-4 h-4 bg-red-100 border border-red-300 rounded mr-2"></span>
+                      <span className="line-through">Removed (only in first)</span>
+                    </span>
+                    <span className="flex items-center">
+                      <span className="w-4 h-4 bg-green-100 border border-green-300 rounded mr-2"></span>
+                      Added (only in second)
+                    </span>
+                    <span className="flex items-center">
+                      <span className="w-4 h-4 bg-yellow-100 border border-yellow-300 rounded mr-2"></span>
+                      Modified (value/type changed)
+                    </span>
+                    <span className="flex items-center">
+                      <span className="w-4 h-4 bg-blue-500 border border-blue-600 rounded mr-2"></span>
+                      Currently highlighted
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
         ) : (
-          <div className="space-y-4">
-            {/* Only in First JSON */}
-            {outputData.details.onlyInFirst.length > 0 && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <h4 className="font-semibold text-red-700 mb-2">🔴 Only in First JSON ({outputData.details.onlyInFirst.length})</h4>
-                <div className="space-y-2">
-                  {outputData.details.onlyInFirst.map((item: any, index: number) => (
-                    <div key={index} className="bg-white p-2 rounded border text-sm">
-                      <div className="font-mono text-red-600">{item.path}</div>
-                      <div className="text-gray-600">Value: <span className="font-mono">{JSON.stringify(item.value)}</span></div>
-                      <div className="text-gray-500 text-xs">Type: {item.type}</div>
-                    </div>
-                  ))}
+          /* Details Section - Only show when showDetails is true */
+          outputData.summary.totalDifferences === 0 ? (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+              <div className="text-green-700 font-semibold">✅ No differences found!</div>
+              <div className="text-green-600 text-sm">Both JSON objects are identical</div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Only in First JSON */}
+              {outputData.details.onlyInFirst.length > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-red-700 mb-2">🔴 Only in First JSON ({outputData.details.onlyInFirst.length})</h4>
+                  <div className="space-y-2">
+                    {outputData.details.onlyInFirst.map((item: any, index: number) => (
+                      <div
+                        key={index}
+                        className="bg-white p-2 rounded border text-sm"
+                      >
+                        <div className="font-mono text-red-600">{item.path}</div>
+                        <div className="text-gray-600">Value: <span className="font-mono bg-red-100 px-1 rounded text-red-800">{JSON.stringify(item.value)}</span></div>
+                        <div className="text-gray-500 text-xs">Type: {item.type}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Only in Second JSON */}
-            {outputData.details.onlyInSecond.length > 0 && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <h4 className="font-semibold text-green-700 mb-2">🟢 Only in Second JSON ({outputData.details.onlyInSecond.length})</h4>
-                <div className="space-y-2">
-                  {outputData.details.onlyInSecond.map((item: any, index: number) => (
-                    <div key={index} className="bg-white p-2 rounded border text-sm">
-                      <div className="font-mono text-green-600">{item.path}</div>
-                      <div className="text-gray-600">Value: <span className="font-mono">{JSON.stringify(item.value)}</span></div>
-                      <div className="text-gray-500 text-xs">Type: {item.type}</div>
-                    </div>
-                  ))}
+              {/* Only in Second JSON */}
+              {outputData.details.onlyInSecond.length > 0 && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-green-700 mb-2">🟢 Only in Second JSON ({outputData.details.onlyInSecond.length})</h4>
+                  <div className="space-y-2">
+                    {outputData.details.onlyInSecond.map((item: any, index: number) => (
+                      <div
+                        key={index}
+                        className="bg-white p-2 rounded border text-sm"
+                      >
+                        <div className="font-mono text-green-600">{item.path}</div>
+                        <div className="text-gray-600">Value: <span className="font-mono bg-green-100 px-1 rounded text-green-800">{JSON.stringify(item.value)}</span></div>
+                        <div className="text-gray-500 text-xs">Type: {item.type}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Value Changed */}
-            {outputData.details.valueChanged.length > 0 && (
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                <h4 className="font-semibold text-orange-700 mb-2">🟡 Value Changes ({outputData.details.valueChanged.length})</h4>
-                <div className="space-y-2">
-                  {outputData.details.valueChanged.map((item: any, index: number) => (
-                    <div key={index} className="bg-white p-2 rounded border text-sm">
-                      <div className="font-mono text-orange-600">{item.path}</div>
-                      <div className="grid grid-cols-2 gap-2 mt-1">
-                        <div>
-                          <div className="text-red-600 text-xs">First:</div>
-                          <div className="font-mono text-sm">{JSON.stringify(item.firstValue)}</div>
-                        </div>
-                        <div>
-                          <div className="text-green-600 text-xs">Second:</div>
-                          <div className="font-mono text-sm">{JSON.stringify(item.secondValue)}</div>
+              {/* Value Changed */}
+              {outputData.details.valueChanged.length > 0 && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-orange-700 mb-2">🟡 Value Changes ({outputData.details.valueChanged.length})</h4>
+                  <div className="space-y-2">
+                    {outputData.details.valueChanged.map((item: any, index: number) => (
+                      <div
+                        key={index}
+                        className="bg-white p-2 rounded border text-sm"
+                      >
+                        <div className="font-mono text-orange-600">{item.path}</div>
+                        <div className="grid grid-cols-2 gap-2 mt-1">
+                          <div>
+                            <div className="text-red-600 text-xs">First:</div>
+                            <div className="font-mono text-sm bg-red-100 px-1 rounded text-red-800">{JSON.stringify(item.firstValue)}</div>
+                          </div>
+                          <div>
+                            <div className="text-green-600 text-xs">Second:</div>
+                            <div className="font-mono text-sm bg-green-100 px-1 rounded text-green-800">{JSON.stringify(item.secondValue)}</div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Type Changed */}
-            {outputData.details.typeChanged.length > 0 && (
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                <h4 className="font-semibold text-purple-700 mb-2">🟣 Type Changes ({outputData.details.typeChanged.length})</h4>
-                <div className="space-y-2">
-                  {outputData.details.typeChanged.map((item: any, index: number) => (
-                    <div key={index} className="bg-white p-2 rounded border text-sm">
-                      <div className="font-mono text-purple-600">{item.path}</div>
-                      <div className="grid grid-cols-2 gap-2 mt-1">
-                        <div>
-                          <div className="text-red-600 text-xs">First ({item.firstType}):</div>
-                          <div className="font-mono text-sm">{JSON.stringify(item.firstValue)}</div>
-                        </div>
-                        <div>
-                          <div className="text-green-600 text-xs">Second ({item.secondType}):</div>
-                          <div className="font-mono text-sm">{JSON.stringify(item.secondValue)}</div>
+              {/* Type Changed */}
+              {outputData.details.typeChanged.length > 0 && (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-purple-700 mb-2">🟣 Type Changes ({outputData.details.typeChanged.length})</h4>
+                  <div className="space-y-2">
+                    {outputData.details.typeChanged.map((item: any, index: number) => (
+                      <div
+                        key={index}
+                        className="bg-white p-2 rounded border text-sm"
+                      >
+                        <div className="font-mono text-purple-600">{item.path}</div>
+                        <div className="grid grid-cols-2 gap-2 mt-1">
+                          <div>
+                            <div className="text-red-600 text-xs">First ({item.firstType}):</div>
+                            <div className="font-mono text-sm bg-red-100 px-1 rounded text-red-800">{JSON.stringify(item.firstValue)}</div>
+                          </div>
+                          <div>
+                            <div className="text-green-600 text-xs">Second ({item.secondType}):</div>
+                            <div className="font-mono text-sm bg-green-100 px-1 rounded text-green-800">{JSON.stringify(item.secondValue)}</div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )
         )}
       </div>
     );
