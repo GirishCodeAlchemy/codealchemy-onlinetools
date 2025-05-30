@@ -566,7 +566,7 @@ export default function Home() {
               onChange={(e) => setInputData1(e.target.value)}
               style={{
                 height: selectedOption === 'Stringify' ? '400px' : '80%',
-                minHeight: '300px',
+                minHeight: '850px',
                 resize: 'vertical',
                 wordBreak: 'break-all',
                 whiteSpace: 'pre-wrap'

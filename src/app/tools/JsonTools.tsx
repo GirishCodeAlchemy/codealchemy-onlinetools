@@ -4,6 +4,9 @@ import React, { useRef, useImperativeHandle, useState, forwardRef } from "react"
 
 import styles from '../../styles/jsonTools.module.css';
 
+import { fixJSONOption } from './JsonModule/fixJsonOption';
+
+
 export function prettifyJSON(input: string) {
   try {
     return JSON.stringify(JSON.parse(input), null, 2);
@@ -203,6 +206,52 @@ export function JsonToolOutput({ outputData }: { outputData: any }) {
     navigator.clipboard.writeText(text);
   };
 
+  // CSS injection for better styling
+  React.useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      .prevent-horizontal-scroll {
+        overflow-x: hidden !important;
+        word-wrap: break-word;
+        word-break: break-all;
+        white-space: pre-wrap;
+      }
+
+      .json-output-container {
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-y: auto;
+      }
+
+      .json-output-container pre {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        word-break: break-all;
+        overflow-wrap: break-word;
+      }
+
+      @keyframes highlight-pulse {
+        0%, 100% {
+          box-shadow: 0 0 0 2px rgb(59 130 246);
+          transform: scale(1);
+        }
+        50% {
+          box-shadow: 0 0 0 4px rgb(59 130 246 / 0.3);
+          transform: scale(1.02);
+        }
+      }
+      .highlight-current {
+        animation: highlight-pulse 2s ease-in-out;
+      }
+    `;
+    document.head.appendChild(style);
+
+    return () => {
+      if (document.head.contains(style)) {
+        document.head.removeChild(style);
+      }
+    };
+  }, []);
   // Get all mismatches in order
   const getAllMismatches = (differences: any) => {
     const allMismatches: Array<{path: string, type: string, details: any}> = [];
@@ -720,6 +769,122 @@ export function JsonToolOutput({ outputData }: { outputData: any }) {
     );
   }
 
+  // Handle fixed JSON output
+  if (outputData && typeof outputData === 'object' && (outputData.type === 'fixed' || outputData.type === 'failed')) {
+    return (
+      <div className="space-y-4">
+        <div className="bg-white shadow rounded-lg p-4">
+          <h3 className="text-lg font-semibold text-gray-800 mb-3">
+            {outputData.success ? '🔧 JSON Auto-Fixed' : '⚠️ JSON Fix Attempted'}
+          </h3>
+
+          {/* Status Summary */}
+          <div className={`p-3 rounded-lg mb-4 ${
+            outputData.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+          }`}>
+            <div className={`text-sm font-semibold ${
+              outputData.success ? 'text-green-800' : 'text-red-800'
+            }`}>
+              {outputData.success ? '✅ Successfully fixed and validated' : '❌ Could not fully repair JSON'}
+            </div>
+            {outputData.issues.length > 0 && (
+              <div className="text-xs mt-1 text-gray-600">
+                {outputData.issues.length} issue(s) {outputData.success ? 'fixed' : 'attempted'}
+              </div>
+            )}
+          </div>
+
+          {/* Issues Fixed */}
+          {outputData.issues.length > 0 && (
+            <div className="mb-4">
+              <h4 className="font-semibold text-gray-700 mb-2">🔍 Issues {outputData.success ? 'Fixed' : 'Attempted'}:</h4>
+              <div className="bg-blue-50 p-3 rounded border">
+                <ul className="text-sm text-blue-800 space-y-1">
+                  {outputData.issues.map((issue: string, index: number) => (
+                    <li key={index} className="flex items-start">
+                      <span className="text-blue-600 mr-2">•</span>
+                      {issue}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* Before and After Comparison */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+            {/* Original JSON */}
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <h5 className="font-semibold text-red-700 mb-2">📄 Original JSON:</h5>
+              <pre className="font-mono text-sm bg-white p-3 rounded border max-h-64 overflow-auto whitespace-pre-wrap break-all text-red-800">
+                {outputData.original}
+              </pre>
+            </div>
+
+            {/* Fixed/Attempted JSON */}
+            <div className={`border rounded-lg p-4 ${
+              outputData.success ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'
+            }`}>
+              <div className="flex items-center justify-between mb-2">
+                <h5 className={`font-semibold ${
+                  outputData.success ? 'text-green-700' : 'text-yellow-700'
+                }`}>
+                  {outputData.success ? '✅ Fixed JSON:' : '⚠️ Attempted Fix:'}
+                </h5>
+                {outputData.success && (
+                  <button
+                    onClick={() => copyToClipboard(outputData.fixed)}
+                    className="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors text-xs"
+                  >
+                    📋 Copy
+                  </button>
+                )}
+              </div>
+              <pre className={`font-mono text-sm bg-white p-3 rounded border max-h-64 overflow-auto whitespace-pre-wrap ${
+                outputData.success ? 'text-green-800' : 'text-yellow-800'
+              }`}>
+                {outputData.success ? outputData.fixed : outputData.attempted}
+              </pre>
+            </div>
+          </div>
+
+          {/* Error Details (if failed) */}
+          {!outputData.success && outputData.error && (
+            <div className="bg-red-50 border border-red-200 rounded p-3 mb-4">
+              <h5 className="font-semibold text-red-700 mb-1">❌ Parse Error:</h5>
+              <code className="text-sm text-red-600">{outputData.error}</code>
+            </div>
+          )}
+
+          {/* Usage Tips */}
+          <div className="bg-blue-50 border border-blue-200 rounded p-3">
+            <h5 className="font-semibold text-blue-800 mb-1">💡 Auto-Fix Features:</h5>
+            <ul className="text-blue-700 text-sm space-y-1">
+              <li>• Converts single quotes to double quotes</li>
+              <li>• Adds quotes around unquoted property names</li>
+              <li>• Removes trailing commas</li>
+              <li>• Adds missing commas between elements</li>
+              <li>• Fixes boolean/null string literals</li>
+              <li>• Removes comments (// and /* */)</li>
+              <li>• Balances missing brackets and braces</li>
+              <li>• Repairs malformed numbers</li>
+            </ul>
+          </div>
+
+          {/* Success Actions */}
+          {outputData.success && (
+            <div className="mt-4 p-3 bg-green-100 border border-green-300 rounded">
+              <div className="text-green-800 text-sm font-semibold mb-1">🎉 JSON is now valid!</div>
+              <div className="text-green-700 text-xs">
+                You can copy the fixed JSON and use it in your applications.
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // Default output for other JSON tools
   if (typeof outputData === 'object') {
     return <pre className={styles.output}>{JSON.stringify(outputData, null, 2)}</pre>;
@@ -745,7 +910,7 @@ export function stringifyJSON(input: string) {
 
 export function fixJSON(input: string) {
   try {
-    return JSON.stringify(JSON.parse(input), null, 2);
+    return fixJSONOption(input);
   } catch {
     return 'Invalid JSON input. Please check your input.';
   }
